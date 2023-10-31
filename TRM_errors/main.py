@@ -4,14 +4,14 @@
 
 #from optparse import OptionParser
 from omegaconf import OmegaConf
-from TRM_Errors.config.config import defaults
-from TRM_Errors.tirshaker.tirshaker import run_tirshaker
+from TRM_errors.config.config import defaults
+from TRM_errors.tirshaker.tirshaker import run_tirshaker
 import numpy as np
 import sys
 import os
 import traceback
 import warnings
-import TRM_Errors
+import TRM_errors
 import psutil
 
 
@@ -27,7 +27,7 @@ def warn_with_traceback(message, category, filename, lineno, file=None, line=Non
 
 def main(argv):
     if '-v' in argv or '--version' in argv:
-        print(f"This is version {TRM_Errors.__version__} of the program.")
+        print(f"This is version {TRM_errors.__version__} of the program.")
         sys.exit()
 
     if '-h' in argv or '--help' in argv:

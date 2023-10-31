@@ -1,4 +1,4 @@
-include TRM_Errors/bin/create_TRM_errors
+include TRM_errors/bin/create_TRM_errors
 recursive-include TRM_errors/ *.py
 recursive-include TRM_errors/config *.py
 recursive-include TRM_errors/common *.py

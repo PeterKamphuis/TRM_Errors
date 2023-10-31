@@ -14,7 +14,7 @@ from astropy.io import fits
 import numpy as np
 from dataclasses import dataclass, field
 from typing import List
-from TRM_Errors.common.common import print_log,write_tirific,load_tirific,\
+from TRM_errors.common.common import print_log,write_tirific,load_tirific,\
             set_format,set_limits,tirific_template,finish_current_run,check_pid
 import subprocess
 from datetime import datetime

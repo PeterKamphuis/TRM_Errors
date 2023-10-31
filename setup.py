@@ -12,13 +12,14 @@ requirements = [
     'omegaconf',
     'scipy',
     'astropy',
+    'psutil',
     'future-fstrings',
     'importlib_resources>=3.3.0',
     'importlib_metadata',
 ]
 
-PACKAGE_NAME = 'TRM_Errors'
-__version__ = '0.0.0'
+PACKAGE_NAME = 'TRM_errors'
+__version__ = '0.0.3'
 
 
 with open("README.md", "r") as fh:
@@ -36,7 +37,7 @@ setup(name=PACKAGE_NAME,
       packages=[PACKAGE_NAME],
       python_requires='>=3.6',
       install_requires=requirements,
-      include_package_data=False,
+      include_package_data=True,
       # package_data - any binary or meta data files should go into MANIFEST.in
       scripts=["bin/" + j for j in os.listdir("bin")],
       license="GNU GPL v3",
