@@ -9,6 +9,6 @@ Contents
 
 
 
-  Introduction, Installation & Easy use <README.rst>
+  Introduction, Installation & Easy use <readme.md>
   The Configuration File <Advanced.rst>
-  Copyright <copyright.rst>
+  Copyright <license.rst>
