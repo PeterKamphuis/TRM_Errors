@@ -115,6 +115,7 @@ General input
 
 Variations input (variation.command=)
 -------------------------------------
+*(variation.command=)*
 
     **VARY**
     
