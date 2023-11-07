@@ -11,7 +11,7 @@ copyright = '2023, P. Kamphuis'
 author = 'P. Kamphuis'
 
 release = '0.0'
-version = '0.0.3'
+version = '0.0.4'
 
 # -- General configuration
 

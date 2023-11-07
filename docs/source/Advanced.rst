@@ -113,7 +113,7 @@ General input
     *str = "/usr/share/fonts/truetype/msttcorefonts/Times_New_Roman.ttf"*
 
 
-Variations input (variation.command=)
+Variations input
 -------------------------------------
 *(variation.command=)*
 
@@ -169,7 +169,50 @@ Variations input (variation.command=)
     **SDIS**
     
     *List = field(default_factory=lambda: [2, 'res','km/s','a'])*    
-  
+
+minimum errors
+-------------------------------------
+*(min_errors.parameter =)*
+
+    **PA** 
+    
+    *float = 0.*
+    
+    **INCL**
+
+    *float = 0.*
+    
+    **VROT**
+
+    *float = 0.*
+    
+    **VRAD**
+    
+    *float = 0.*
+    
+    **VSYS**
+    
+    *float = 0.*
+    
+    **XPOS**
+    
+    *float = 0.*
+    
+    **YPOS**
+    
+    *float = 0.*
+    
+    **SBR** 
+    
+    *float = 0.*
+    
+    **Z0** 
+    
+    *float = 0.*
+    
+    **SDIS** 
+    
+    *float = 0.*   
 
 .. toctree::
    :maxdepth: 2

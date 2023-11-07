@@ -10,6 +10,7 @@ import random
 import time
 import re
 from scipy import stats
+
 from astropy.io import fits
 import numpy as np
 from dataclasses import dataclass, field
@@ -69,15 +70,19 @@ def get_groups(in_groups, no_rings = 3, log = False):
         log_statement += print_log(f'''GET_GROUPS: We are processing {group}
 ''',log)
         parameter = group.split()
+        #first replace i with ! if i is present
+        if  parameter[0][0] == 'i':
+            parameter[0] = f'!{parameter[0][1:]}'
         count = 1
-        current_parameter = f'{re.sub("[^a-zA-Z]+", "", parameter[0])}_{count}'
+        #current_parameter = f'{re.sub("[^a-zA-Z]+", "", parameter[0])}_{count}'
+        base_parameter =  f'{parameter[0].split("_")[0]}'
+        if  base_parameter[0][0] == '!':
+            base_parameter = base_parameter[1:]
+        current_parameter = f'{base_parameter}_{count}'
         while current_parameter in group_dict:
             count += 1
-            current_parameter = f'{re.sub("[^a-zA-Z]+", "", parameter[0])}_{count}'
-        if  parameter[0][0] == 'i':
-            current_parameter = current_parameter[1:]
-            parameter[0] = f'!{parameter[0][1:]}'
-          
+            current_parameter =  f'{base_parameter}_{count}'
+       
         group_dict[current_parameter] = {'COLUMN_ID': i}
         disks = parameter[0].split('_')
         try:
@@ -86,33 +91,50 @@ def get_groups(in_groups, no_rings = 3, log = False):
             group_dict[current_parameter]['DISKS'] =  [1]
         #Individual or block
         if parameter[0][0] == '!':
-            group_dict[current_parameter]['BLOCK'] = False  
-        elif  parameter[0][0] == 'i':
-            current_parameter = current_parameter[1:]
-            group_dict[current_parameter]['BLOCK'] = False          
+            group_dict[current_parameter]['BLOCK'] = False      
         else:
             group_dict[current_parameter]['BLOCK'] = True
       
-        
-        for part in parameter[1:]:
+        start_ring = 0
+        for i,part in enumerate(parameter[1:]):
             if part[0].isnumeric():
-                if ':' in part:
-                    in_rings = [int(x) for x in part.split(':')]
-                    if in_rings.sort():
-                        in_rings.sort()
-                    in_rings = np.array(in_rings,dtype=int)
-                    
-                else:
-                    in_rings = np.array([int(part),int(part)])
-
-                if 'RINGS' not in group_dict[current_parameter]:
-                    group_dict[current_parameter]['RINGS'] = in_rings
-                else:
-                    if np.array_equal(group_dict[current_parameter]['RINGS'],in_rings):
+                if start_ring == 0:
+                    if ':' in part:
+                        in_rings = [int(x) for x in part.split(':')]
+                        if in_rings.sort():
+                            in_rings.sort()
+                        start_ring = in_rings[0]
+                    else:
+                        start_ring = int(part)
+                last = False
+                try: 
+                    if parameter[i+2][0].isnumeric():
+                    #if the next batch is also numeri we continue to the end 
                         pass
                     else:
-                        raise DefFileError("The VARY settings in this deffile are not acceptable you have different rings for one block.")
+                        last =True
+                except IndexError:
+                    last=True
+
+                if last:
+                    if ':' in part:
+                        in_rings = [int(x) for x in part.split(':')]
+                        if in_rings.sort():
+                            in_rings.sort()
+                        in_rings = np.array([start_ring,in_rings[-1]],dtype=int)      
+                    else:
+                        in_rings = np.array([int(start_ring),int(part)])
+
+                    if 'RINGS' not in group_dict[current_parameter]:
+                        group_dict[current_parameter]['RINGS'] = in_rings
+                    else:
+                        if np.array_equal(group_dict[current_parameter]['RINGS'],in_rings):
+                            pass
+                        else:
+                            print(f'processing this group {group} for {current_parameter} and we have {in_rings} to compare to set {group_dict[current_parameter]["RINGS"]} ')
+                            raise DefFileError("The VARY settings in this deffile are not acceptable you have different rings for one block.")
             else:
+                start_ring = 0
                 disks = part.split('_')
                 try:
                     group_dict[current_parameter]['DISKS'].append(int(disks[1]))
@@ -171,19 +193,19 @@ Your header did not have a unit for the third axis, that is bad policy.
         log_statement += print_log(f'''SET_MANUAL_VARIATIONS: processing {group}
 ''',log)
         groupbare = group.split('_')
-        input = copy.deepcopy(getattr(variation,groupbare[0]))
-        if input[1].lower() == 'res':
-            if input[2].lower() == 'arcsec':
-                input[0] = input[0] * hdr['BMAJ']*3600.
-            elif input[2].lower() == 'degree':
-                input[0] = input[0] * hdr['BMAJ']
-            elif input[2].lower() == 'angle':
+        var_input = copy.deepcopy(getattr(variation,groupbare[0]))
+        if var_input[1].lower() == 'res':
+            if var_input[2].lower() == 'arcsec':
+                var_input[0] = var_input[0] * hdr['BMAJ']*3600.
+            elif var_input[2].lower() == 'degree':
+                var_input[0] = var_input[0] * hdr['BMAJ']
+            elif var_input[2].lower() == 'angle':
                 raise TirshakerInputError(f''' We have no way to relate an angle to the resolution of the cube''')
-            elif input[2].lower() == 'km/s':
-                input[0] = input[0] * hdr['CDELT3']
-            elif input[2].lower() == 'm/s':
-                input[0] = input[0] * hdr['CDELT3']*1000.
-            elif input[2].lower() == 'jy/arcsec**2':
+            elif var_input[2].lower() == 'km/s':
+                var_input[0] = var_input[0] * hdr['CDELT3']
+            elif var_input[2].lower() == 'm/s':
+                var_input[0] = var_input[0] * hdr['CDELT3']*1000.
+            elif var_input[2].lower() == 'jy/arcsec**2':
                 if 'NOISE' in hdr or 'FATNOISE' in hdr:
                     try:
                         noise = hdr['FATNOISE']
@@ -193,8 +215,8 @@ Your header did not have a unit for the third axis, that is bad policy.
                    raise TirshakerInputError(f''' We have no way to relate an SBR to the cube without the noise level in the header''') 
                 noise = noise*(2. *np.pi / (np.log(256.)))\
                     *hdr['BMAJ']*hdr['BMIN']*3600**2
-                input[0] = input[0] * hdr['CDELT3']*noise
-        fit_groups[group]['VARIATION'] = [input[0], input[3]]
+                var_input[0] = var_input[0] * hdr['CDELT3']*noise
+        fit_groups[group]['VARIATION'] = [var_input[0], var_input[3]]
     return log_statement
 
 
@@ -412,12 +434,116 @@ run_tirific.__doc__ =f'''
  NOTE:
 '''
 
+def set_individual_iteration(Tirific_Template, i,fit_groups, directory,tirific_call, log = True,
+                             name_in = 'Error_Shaker_In.def', name_out = 'Shaken_Errors.def'):
+    log_statement = ''
+    Current_Template = copy.deepcopy(Tirific_Template)
+    Current_Template['RESTARTID']= i
+    nur = int(Current_Template['RESTARTID'])
+    # Provide some info where we are
+    log_statement += print_log(f'''
+    ******************************
+    ******************************
+    *** Tirshaker iteration {i:02d} ***
+    ******************************
+    ******************************
+''',log)
+    #Looping through all block
+    for group in  fit_groups:
+        if group not in ['COLLECTED','TO_COLLECT']:
+            if fit_groups[group]['BLOCK']:
+                #If a block use the same variation for all rings in the groups
+                variations = [fit_groups[group]['VARIATION'][0]*random.uniform(-1.,1.)]\
+                    *(fit_groups[group]['RINGS'][1]-fit_groups[group]['RINGS'][0]+1)
+            else:
+                #If not a block use a different variation for all rings in the groups
+                variations = [fit_groups[group]['VARIATION'][0]*random.uniform(-1.,1.) for x \
+                            in range(fit_groups[group]['RINGS'][0],fit_groups[group]['RINGS'][1]+1)]
+
+            for disk in fit_groups[group]['DISKS']:
+                para = group.split('_')[0]
+                if disk != 1:
+                    para = f'{para}_{disk}'
+                current_list = [float(x) for x in Current_Template[para].split()]
+                while len(current_list) < nur:
+                    current_list.append(current_list[-1])
+                for l in range(fit_groups[group]['RINGS'][0],fit_groups[group]['RINGS'][1]+1):
+                    if fit_groups[group]['VARIATION'][1] == 'a':
+                        current_list[int(l-1)] += variations[int(l-fit_groups[group]['RINGS'][0])]
+                    else:
+                        current_list[int(l-1)] *= (1+variations[int(l-fit_groups[group]['RINGS'][0])])
+                format = set_format(para)
+                Current_Template[para] = ' '.join([f'{x:{format}}' for x in current_list])
+    write_tirific(Current_Template, name =f'{directory}/{name_in}',full_name= True )
+    output = {'i': i, 'directory': directory, 'deffile': name_in,\
+             'tirific_call': tirific_call, 'TO_COLLECT':fit_groups['TO_COLLECT'], 'log': log_statement,\
+             'tmp_name_out': Current_Template['TIRDEF']}
+    return output
+
+def run_individual_iteration(dict_input, log = True):
+    current_run = None
+    current_run = run_tirific(current_run,deffile=dict_input['deffile'],work_dir = dict_input['directory'],tirific_call=dict_input['tirific_call'], \
+                            max_ini_time= 600)
+    dict_input['log'] += finish_current_run(current_run,log=log)
+        # Read the values of the pararameter groups
+    output = {'log':dict_input['log']}    
+    for parameter in dict_input['TO_COLLECT']:
+            output[parameter] = load_tirific(f"{dict_input['directory']}/{dict_input['tmp_name_out']}",\
+                    Variables = [parameter],array=True)
+    return output
+
+def tirshaker_cleanup(fit_groups,cfg,mode = 'mad'):
+    log_statement = ''
+    #read the original input
+    Tirific_Template = tirific_template(filename=f'{cfg.general.directory}/{cfg.tirshaker.deffile_in}')
+
+    fit_groups['FINAL_ERR'] = {}     
+    for parameter in fit_groups['TO_COLLECT']:
+        base_parameter= parameter.split('_')[0]
+        print(f'Processing {parameter}')
+        all_iterations = np.array(fit_groups['COLLECTED'][parameter],dtype=float)
+        fit_groups['FINAL_ERR'][parameter] = np.zeros(all_iterations[0].size) 
+        minimum_err = getattr(cfg.min_errors,base_parameter)
+        for ring in range(all_iterations[0].size):
+            all_its = all_iterations[:,ring]
+            
+            if mode == 'mad':
+                median = np.median(all_its)
+                mad = stats.median_abs_deviation(all_its)
+                madsigma = stats.median_abs_deviation(all_its) 
+                average = np.average(all_its) 
+                # Wow, np.std is the standard deviation using N and not N-1 in the denominator. So one has to use
+                #std = np.sqrt(float(len(allparamsturned[j][k][l]))/float(len(allparamsturned[j][k][l])-1))*np.std(np.array(allparamsturned[j][k][l]))  
+                std = np.std(all_its,ddof=1)     
+                final = stats.tmean(all_its, (median-3*madsigma, median+3*madsigma))
+                final_err =  stats.tstd(all_its, (median-3*madsigma, median+3*madsigma))
+                if final_err > minimum_err:
+                    fit_groups['FINAL_ERR'][parameter][ring] = final_err
+                else:
+                    fit_groups['FINAL_ERR'][parameter][ring] = minimum_err
+                log_statement += print_log(f'TIRSHAKER: Parameter: {parameter} Ring: {ring} Pure average+-std: {average:.3e}+-{std:.3e} Median+-madsigma: {median:.3e}+-{madsigma:.3e} Average+-sigma filtered: {final:.3e}+-{final_err:.3e} \n')
+    print(fit_groups['FINAL_ERR'])
+   
+
+    for parameter in fit_groups['TO_COLLECT']:
+        print(parameter)
+        format = set_format(parameter)
+        Tirific_Template.insert(f'{parameter}',f'# {parameter}_ERR',f"{' '.join([f'{x:{format}}' for x in fit_groups['FINAL_ERR'][parameter]])}") 
+        print(Tirific_Template[f'# {parameter}_ERR'])       
+    # Put them into the output file
+    # Write it to a copy of the file replacing the parameters
 
 
+   
+    write_tirific(Tirific_Template, name = f'{cfg.general.directory}/{cfg.tirshaker.directory}/{cfg.tirshaker.deffile_out}',full_name=True)
+    print(f'This is the final File with the errors {cfg.general.directory}/{cfg.tirshaker.directory}/{cfg.tirshaker.deffile_out}')
+    return log_statement
 #The actual tirshaker
+'''
 def tirshaker(Tirific_Template_In, log = False, directory = f'{os.getcwd()}/Error_Shaker/',\
               fit_groups=None,tmp_name_out = 'Error_Shaker_Out.def',tirific_call = 'tirific',\
-              iterations = None, random_seed = None, mode = 'mad',initialization_mode = None,out_file='Shaken_Errors.def'):
+              iterations = None, random_seed = None, mode = 'mad',initialization_mode = None,
+              out_file='Shaken_Errors.def', multiprocessing= True, ncpu = None):
     Tirific_Template= copy.deepcopy(Tirific_Template_In)
     log_statement = ''
     # Initiate rng
@@ -429,28 +555,19 @@ def tirshaker(Tirific_Template_In, log = False, directory = f'{os.getcwd()}/Erro
     # Find the number of rings
     nur = int(Tirific_Template['NUR'])
     # Here we collect all parameter_groups as listed above and convert the lists into numbers
-    '''
-    # This is collecting the the actuala values for every fit group but it does not take the rings into account. 
-    # Then through the parameter groups and collect the parameter_groups
-    allnumbers_in = []
-    for j in range(len(parameter_groups)):
-        numbers = []
-        # Then go through the parameter_groups
-        for k in range(len(parameter_groups[j])):
-            #Once we checked all we can replace para with parameter_groups and use the input without =
-            numbers.append([float(l) for l in Tirific_Template[parameter_groups[j][k]].split()])
-            if parameter_groups[j][k] == 'CONDISP':
-                pass
-            else:
-                while len(numbers[-1]) < nur:
-                    numbers[-1].append(numbers[-1][-1])
-
-        allnumbers_in.append(numbers)
-
-    allnumbers_out = []
-    '''
+  
     #Make sure some settings are blank
-   
+    if ncpu == None:
+        ncpu = int(Tirific_Template['NCORES'])
+
+    if multiprocessing:
+        processes = 0
+        while ncpu > int(Tirific_Template['NCORES']):
+            processes += 1
+            ncpu -= int(Tirific_Template['NCORES'])
+    else: 
+        processes = 1
+        Tirific_Template['NCORES'] = ncpu
     Tirific_Template['OUTSET'] = ''
     Tirific_Template['PROGRESSLOG'] = ''
     Tirific_Template['TEXTLOG'] = ''
@@ -458,13 +575,16 @@ def tirshaker(Tirific_Template_In, log = False, directory = f'{os.getcwd()}/Erro
     Tirific_Template['COOLGAL'] = ''
     Tirific_Template['TILT'] = ''
     Tirific_Template['BIGTILT'] = ''
-    if initialization_mode == None:
-        if nur < 15:
-            Tirific_Template['INIMODE'] = 2
+    if processes == 1:
+        if initialization_mode == None:
+            if nur < 15:
+                Tirific_Template['INIMODE'] = 2
+            else:
+                Tirific_Template['INIMODE'] = 3
         else:
-            Tirific_Template['INIMODE'] = 3
+            Tirific_Template['INIMODE'] = initialization_mode
     else:
-        Tirific_Template['INIMODE'] = initialization_mode
+        Tirific_Template['INIMODE'] = 0.
 
     Tirific_Template['LOGNAME'] = 'Error_Shaker.log'
     Tirific_Template['TIRDEF'] = tmp_name_out
@@ -480,51 +600,38 @@ def tirshaker(Tirific_Template_In, log = False, directory = f'{os.getcwd()}/Erro
                 if para not in  fit_groups['TO_COLLECT']:
                     fit_groups['TO_COLLECT'].append(para)
                 fit_groups['COLLECTED'][para] = []
-    for i in range(iterations):
-        Current_Template = copy.deepcopy(Tirific_Template)
-        Current_Template['RESTARTID']= i
-        # Provide some info where we are
-        log_statement += print_log(f'''
-        ******************************
-        ******************************
-        *** Tirshaker iteration {i:02d} ***
-        ******************************
-        ******************************
-''',log)
-        #Looping through all block
-        for group in  fit_groups:
-            if group not in ['COLLECTED','TO_COLLECT']:
-                if fit_groups[group]['BLOCK']:
-                    #If a block use the same variation for all rings in the groups
-                    variations = [fit_groups[group]['VARIATION'][0]*random.uniform(-1.,1.)]\
-                        *(fit_groups[group]['RINGS'][1]-fit_groups[group]['RINGS'][0]+1)
-                else:
-                    #If not a block use a different variation for all rings in the groups
-                    variations = [fit_groups[group]['VARIATION'][0]*random.uniform(-1.,1.) for x \
-                                in range(fit_groups[group]['RINGS'][0],fit_groups[group]['RINGS'][1]+1)]
 
-                for disk in fit_groups[group]['DISKS']:
-                    para = group.split('_')[0]
-                    if disk != 1:
-                        para = f'{para}_{disk}'
-                    current_list = [float(x) for x in Current_Template[para].split()]
-                    while len(current_list) < nur:
-                        current_list.append(current_list[-1])
-                    for l in range(fit_groups[group]['RINGS'][0],fit_groups[group]['RINGS'][1]+1):
-                        if fit_groups[group]['VARIATION'][1] == 'a':
-                            current_list[int(l-1)] += variations[int(l-fit_groups[group]['RINGS'][0])]
-                        else:
-                            current_list[int(l-1)] *= (1+variations[int(l-fit_groups[group]['RINGS'][0])])
-                    format = set_format(para)
-                    Current_Template[para] = ' '.join([f'{x:{format}}' for x in current_list])
-        write_tirific(Current_Template, name =f'{directory}/Error_Shaker_In.def',full_name= True )
-       
-        current_run = run_tirific(current_run,deffile='Error_Shaker_In.def',work_dir = directory,tirific_call=tirific_call, \
+    list_iterations = []
+    if processes > 1:
+        
+        #In case of multiprocessing we want to make sure to start with
+        #The big galaxies
+        #Setup an array of configs with locks
+
+        for i in range(iterations):
+            list_iterations.append([set_individual_iteration(Tirific_Template, i,fit_groups, \
+                                directory,tirific_call,name_in=f'Error_Shaker_In_{i}.def')\
+                                ])
+        #Get all intitial setups
+        with get_context("spawn").Pool(processes=processes) as pool:
+            print(f'Starting iterations with {processes} processes')
+            iteration_output = pool.starmap(run_individual_iteration, list_iterations)
+        for iter in iteration_output:
+            log_statement += iteration_output['log']
+            for parameter in fit_groups['TO_COLLECT']:
+                fit_groups['COLLECTED'][parameter].append(iteration_output[parameter])
+    else:
+        for i in range(iterations):
+
+            out = set_individual_iteration(Tirific_Template, i,fit_groups, directory,tirific_call,\
+                                          name_in=f'Error_Shaker_In.def')
+            log_statement += out['log']
+            current_run = run_tirific(current_run,deffile=out['deffile'],work_dir = out['directory'],tirific_call=tirific_call, \
                                 max_ini_time= int(300*(int(Tirific_Template['INIMODE'])+1)))
      
         # Read the values of the pararameter groups
-        for parameter in fit_groups['TO_COLLECT']:
-            fit_groups['COLLECTED'][parameter].append(load_tirific(f"{directory}/{tmp_name_out}",\
+            for parameter in fit_groups['TO_COLLECT']:
+                fit_groups['COLLECTED'][parameter].append(load_tirific(f"{directory}/{tmp_name_out}",\
                     Variables = [parameter],array=True))
    
     fit_groups['FINAL_ERR'] = {}     
@@ -548,39 +655,7 @@ def tirshaker(Tirific_Template_In, log = False, directory = f'{os.getcwd()}/Erro
                 fit_groups['FINAL_ERR'][parameter][ring] = final_err
                 log_statement += print_log(f'TIRSHAKER: Parameter: {parameter} Ring: {ring} Pure average+-std: {average:.3e}+-{std:.3e} Median+-madsigma: {median:.3e}+-{madsigma:.3e} Average+-sigma filtered: {final:.3e}+-{final_err:.3e} \n')
     print(fit_groups['FINAL_ERR'])
-    '''madsigma = stats.median_abs_deviation(
-    for group in fit_groups:
-        for disk in fit_groups[group]['DISKS']: 
-
-    # Calculate mean and error
-    allnumbers_final = []
-    allnumbers_final_err = []
-    for j in range(len(allnumbers_in)):
-        allnumbers_final.append([])
-        allnumbers_final_err.append([])
-        for k in range(len(allnumbers_in[j])):
-            allnumbers_final[j].append([])
-            allnumbers_final_err[j].append([])
-            for l in range(len(allnumbers_in[j][k])):
-                # Attempt to use mad statistics for this
-                if mode == 'mad':
-
-                    median = np.median(np.array(allparamsturned[j][k][l]))
-#                    mad = stats.median_absolute_deviation(np.array(allparamsturned[j][k][l]))
-                    # Careful! This involves a scaling by 1.4826 by default as the default scale = 1.4826
-                    madsigma = stats.median_abs_deviation(np.array(allparamsturned[j][k][l]))
-                    average = np.average(np.array(allparamsturned[j][k][l]))
-                    # Wow, np.std is the standard deviation using N and not N-1 in the denominator. So one has to use
-                    std = np.sqrt(float(len(allparamsturned[j][k][l]))/float(len(allparamsturned[j][k][l])-1))*np.std(np.array(allparamsturned[j][k][l]))
-                    allnumbers_final[j][k].append(stats.tmean(np.array(allparamsturned[j][k][l]), (median-3*madsigma, median+3*madsigma)))
-                    allnumbers_final_err[j][k].append(stats.tstd(np.array(allparamsturned[j][k][l]), (median-3*madsigma, median+3*madsigma)))
-                    log_statement += print_log('TIRSHAKER: Parameter: {:s} Ring: {:d} Pure average+-std: {:.3e}+-{:.3e} Median+-madsigma: {:.3e}+-{:.3e} Average+-sigma filtered: {:.3e}+-{:.3e} \n'.format(\
-                                parameter_groups[j][k], l+1, average, std, median, madsigma, allnumbers_final[j][k][-1], allnumbers_final_err[j][k][-1])\
-                                ,log)
-                else:
-                    allnumbers_final[j][k].append(np.average(np.array(allparamsturned[j][k][l])))
-                    allnumbers_final_err[j][k].append(np.sqrt(float(len(allparamsturned[j][k][l]))/float(len(allparamsturned[j][k][l])-1))*np.std(np.array(allparamsturned[j][k][l])))
-    '''
+   
 
     for parameter in fit_groups['TO_COLLECT']:
         print(parameter)
@@ -597,7 +672,9 @@ def tirshaker(Tirific_Template_In, log = False, directory = f'{os.getcwd()}/Erro
     return log_statement
   
    
-tirshaker.__doc__ =f'''
+tirshaker.__doc__ =
+'''
+f'''
  NAME:
     tirshaker
 
@@ -673,16 +750,13 @@ tirshaker.__doc__ =f'''
 
 '''
 
-# This functions sets up the defirent parameters that are needed for tirshaker call
-def run_tirshaker(cfg, log=False):
+def prepare_template(cfg, log=False):
     log_statement = ''
     #Read in the deffile
     Tirific_Template = tirific_template(filename=f'{cfg.general.directory}/{cfg.tirshaker.deffile_in}')
     # First we make a directory to keep all contained
     if not os.path.isdir(f'{cfg.general.directory}/{cfg.tirshaker.directory}/'):
         os.mkdir(f'{cfg.general.directory}/{cfg.tirshaker.directory}/')
-
-    #Change the name and run only 2 LOOPS
     Tirific_Template['RESTARTNAME']= f"restart_Error_Shaker.txt"
    
     if cfg.tirshaker.individual_loops == -1:
@@ -706,18 +780,72 @@ def run_tirshaker(cfg, log=False):
 ''',log)
         raise TirshakerInputError(f'''RUN_TIRSHAKER: The Tirshaker mode {cfg.tirshaker.mode} is not yet fully functional. Please use a different mode
 ''')
-    # Only change the inset after extracting all info
-    Tirific_Template['INSET'] = f"../{Tirific_Template['INSET']}"
+    
+    
+
+    
+    if cfg.general.input_cube == None:
+        #We assume the cube path is in inset
+        Tirific_Template['INSET'] = f"../{Tirific_Template['INSET']}"
+    else:
+        Tirific_Template['INSET'] = f"{cfg.general.input_cube}"
+
+    if cfg.general.multiprocessing:
+        processes = 0
+        while cfg.general.ncpu > int(Tirific_Template['NCORES']):
+            processes += 1
+            cfg.general.ncpu -= int(Tirific_Template['NCORES'])
+    else: 
+        processes = 1
+        if cfg.general.ncpu != -1:
+            print(f'We should not be doing this')
+            if cfg.general.ncpu < 10:
+                Tirific_Template['NCORES'] = cfg.general.ncpu
+            else:
+                Tirific_Template['NCORES'] = 10
+
+    Tirific_Template['OUTSET'] = ''
+    Tirific_Template['PROGRESSLOG'] = ''
+    Tirific_Template['TEXTLOG'] = ''
+    Tirific_Template['TIRSMO'] = ''
+    Tirific_Template['COOLGAL'] = ''
+    Tirific_Template['TILT'] = ''
+    Tirific_Template['BIGTILT'] = ''
+    if processes == 1:
+        if cfg.tirshaker.inimode != -1:
+            Tirific_Template['INIMODE'] = cfg.tirshaker.inimode
+    else:
+        Tirific_Template['INIMODE'] = 0.
+
+    Tirific_Template['LOGNAME'] = 'Error_Shaker.log'
+    Tirific_Template['TIRDEF'] = 'Error_Shaker_Out.def'
     out = [f'Parameter = {x} with block = {fit_groups[x]["BLOCK"]} for the rings {fit_groups[x]["RINGS"]} and disks {fit_groups[x]["DISKS"]} varied by {fit_groups[x]["VARIATION"][0]}. \n' for x in fit_groups ]
     log_statement += print_log(f'''RUN_TIRSHAKER: We are shaking with the following parameters:
 {''.join(out)}
 ''',log)
+    fit_groups['TO_COLLECT'] = []
+    fit_groups['COLLECTED'] = {}
+    for group in  fit_groups:
+        if group not in ['COLLECTED','TO_COLLECT']:
+            for disk in fit_groups[group]['DISKS']:
+                para = group.split('_')[0]
+                if disk != 1:
+                    para = f'{para}_{disk}'
+                if para not in  fit_groups['TO_COLLECT']:
+                    fit_groups['TO_COLLECT'].append(para)
+                fit_groups['COLLECTED'][para] = []
     
+    return log_statement,Tirific_Template,fit_groups,processes
+'''
+# This functions sets up the defirent parameters that are needed for tirshaker call
+def run_tirshaker(cfg, log=False):
+    log_statement, Tirific_Template,fit_groups = prepare_template(cfg, log=log)
+   
 
                                     
     log_statement += tirshaker(Tirific_Template, log = log, directory = f'{cfg.general.directory}/{cfg.tirshaker.directory}',\
-            fit_groups =fit_groups ,tirific_call = cfg.tirshaker.tirific,\
-            iterations = cfg.tirshaker.iterations, \
+            fit_groups =fit_groups ,tirific_call = cfg.tirshaker.tirific,multiprocessing=cfg.general.multiprocessing,\
+            iterations = cfg.tirshaker.iterations, ncpu = cfg.general.ncpu,\
             mode = 'mad',initialization_mode= cfg.tirshaker.inimode,out_file=cfg.tirshaker.deffile_out)
- 
+'''
     

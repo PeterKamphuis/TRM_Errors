@@ -5,8 +5,7 @@
 Introduction
 ------------
 
-A pyhon package to create  errors for Tilted Ring Models
-
+A pyhon package to create  errors for Tilted Ring Models. Version 0.0.4 is the first fully working version that incorporates the tirshaker module as written by G.I.G. J\'ozsa.
 
 Requirements
 ------------
@@ -44,4 +43,18 @@ You might have to restart the env:
 
 Once you have installed FAT you can check that it has been installed properly by running FAT as.
 
-  	TRM_errors>  TRM_errors -v 
+  	create_TRM_errors -v 
+
+
+Running TRM_errors
+------------------
+
+You can run TRM_errors by providing a configuration file by 
+
+create_TRM_errors configuration_file=file.yml
+
+an example yaml file with all parameters can be printed by running
+
+create_TRM_errors print_examples=true 
+
+please see the advanced input in readthe docs for an explanation of all parameters.

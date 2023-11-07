@@ -16,17 +16,33 @@ class Tirshaker:
     #Do we want a log
     log: bool = False 
     mode: str = 'fitted' #Fitted the settings and grouping will be read from the fits file and def file if manual they have to be provided
-    inimode: int=2
+    inimode: int=-1
     iterations: int=20
-    individual_loops: int = 3  #Set this to -1 for final release
+    individual_loops: int = -1  #Set this to -1 for final release
     tirific: str = 'tirific'
 
 @dataclass
 class General:
+    input_cube: Optional[str] = None
     ncpu: int = cpu_count()-1
     directory: str = os.getcwd()
     multiprocessing: bool = True
     #font_file: str = "/usr/share/fonts/truetype/msttcorefonts/Times_New_Roman.ttf"
+
+@dataclass
+class Min_Errors:
+    PA: float = 0.
+    INCL: float = 0.
+    VROT: float = 0.
+    VRAD: float = 0.
+    VSYS: float = 0.
+    XPOS: float = 0.
+    YPOS: float = 0.
+    SBR: float = 0.
+    Z0: float = 0.
+    SDIS: float = 0.   
+   
+
 
 @dataclass
 class Variations:
@@ -49,4 +65,5 @@ class defaults:
     configuration_file: Optional[str] = None
     general: General = General()
     tirshaker: Tirshaker=Tirshaker()
+    min_errors: Min_Errors = Min_Errors()
     variations: Variations = Variations() 
