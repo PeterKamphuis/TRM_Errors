@@ -105,6 +105,12 @@ General input
     
     *str = os.getcwd()*
 
+    **verbose**
+    
+    *bool = True*
+
+    print info or not
+
     **multiprocessing**
     
     *bool = True*

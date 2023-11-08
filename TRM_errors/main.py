@@ -107,7 +107,8 @@ configuration_file = ''')
             # simply running tiriic would mess up with continuation/restart id
             with Manager() as loop_manager:
                 with get_context("spawn").Pool(processes=no_processes) as pool:
-                    print(f'Starting iterations with {no_processes} processes')
+                    if cfg.general.verbose:
+                        print(f'Starting iterations with {no_processes} processes')
                     iteration_output = pool.starmap(run_individual_iteration, list_iterations)
             for iter in iteration_output:
                 log_statement += iter['log']

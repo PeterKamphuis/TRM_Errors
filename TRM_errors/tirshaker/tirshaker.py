@@ -30,7 +30,7 @@ class TirshakerInputError(Exception):
     pass
 
 '''Extract the existing errors if present'''
-def get_existing_errors(Tirific_Template, fit_groups, log =False):
+def get_existing_errors(Tirific_Template, fit_groups, log =False, verbose=True):
     log_statement = ''
     for group in fit_groups:
         fit_groups[group]['ERRORS'] = []
@@ -43,12 +43,12 @@ def get_existing_errors(Tirific_Template, fit_groups, log =False):
             if len(errors) == 0.:
                 fit_groups[group]['ERRORS'].append(None)
             else:
-                rings = fit_groups[group]['RINGS']
+                rings = fit_groups[group]['RINGS'][f'{disk}']
                 fit_groups[group]['ERRORS'].append(np.mean(errors[rings[0]:rings[1]+1]))
 
     return log_statement
 '''Extract the fitting parameters from PARMAX, PARMIN and DELSTART  '''
-def get_variations(Tirific_Template, fit_groups, log =False):
+def get_variations(Tirific_Template, fit_groups, log =False, verbose =True):
     log_statement = ''
     parmax = Tirific_Template['PARMAX'].split()
     parmin = Tirific_Template['PARMIN'].split()
@@ -60,14 +60,16 @@ def get_variations(Tirific_Template, fit_groups, log =False):
     return log_statement
 
 '''Extract the fitting parameters from the fitting VARY line '''
-def get_groups(in_groups, no_rings = 3, log = False):
+def get_groups(in_groups, no_rings = 3, log = False, verbose=True):
     group_dict = {}   
     log_statement = ''
-    log_statement += print_log(f'''GET_GROUPS: We have found the following unformatted groups from VARY:
+    if verbose:
+        log_statement += print_log(f'''GET_GROUPS: We have found the following unformatted groups from VARY:
 {'':8s}{in_groups}
 ''',log)
     for i,group in enumerate(in_groups):
-        log_statement += print_log(f'''GET_GROUPS: We are processing {group}
+        if verbose:
+            log_statement += print_log(f'''GET_GROUPS: We are processing {group}
 ''',log)
         parameter = group.split()
         #first replace i with ! if i is present
@@ -86,15 +88,17 @@ def get_groups(in_groups, no_rings = 3, log = False):
         group_dict[current_parameter] = {'COLUMN_ID': i}
         disks = parameter[0].split('_')
         try:
-            group_dict[current_parameter]['DISKS'] =  [int(disks[1])]
+            group_dict[current_parameter]['DISKS'] =  [int(disks[1])]  
+            current_disk = disks[1]
         except IndexError:
-            group_dict[current_parameter]['DISKS'] =  [1]
+            group_dict[current_parameter]['DISKS'] =  [1] 
+            current_disk = '1'
         #Individual or block
         if parameter[0][0] == '!':
             group_dict[current_parameter]['BLOCK'] = False      
         else:
             group_dict[current_parameter]['BLOCK'] = True
-      
+        group_dict[current_parameter]['RINGS'] = {'EXTEND': []}
         start_ring = 0
         for i,part in enumerate(parameter[1:]):
             if part[0].isnumeric():
@@ -125,32 +129,41 @@ def get_groups(in_groups, no_rings = 3, log = False):
                     else:
                         in_rings = np.array([int(start_ring),int(part)])
 
-                    if 'RINGS' not in group_dict[current_parameter]:
-                        group_dict[current_parameter]['RINGS'] = in_rings
+                    if current_disk not in group_dict[current_parameter]['RINGS']:
+                        group_dict[current_parameter]['RINGS'][current_disk] = in_rings
                     else:
-                        if np.array_equal(group_dict[current_parameter]['RINGS'],in_rings):
-                            pass
-                        else:
-                            print(f'processing this group {group} for {current_parameter} and we have {in_rings} to compare to set {group_dict[current_parameter]["RINGS"]} ')
-                            raise DefFileError("The VARY settings in this deffile are not acceptable you have different rings for one block.")
+                        if verbose:
+                            print(f'processing this group {group} for {current_parameter} and we have {in_rings} where we already have {group_dict[current_parameter]["RINGS"][current_disk]}')
+                        raise DefFileError("The VARY settings in this deffile are not acceptable you have multiple indication of the same disk in one block.")
+                    if len(group_dict[current_parameter]['RINGS']['EXTEND']) == 0:
+                        group_dict[current_parameter]['RINGS']['EXTEND'] = in_rings
+                    else:
+                        group_dict[current_parameter]['RINGS']['EXTEND'][0] = \
+                            np.nanmin([group_dict[current_parameter]['RINGS']['EXTEND'][0],in_rings[0]]) 
+                        group_dict[current_parameter]['RINGS']['EXTEND'][1] = \
+                            np.nanmax([group_dict[current_parameter]['RINGS']['EXTEND'][1],in_rings[1]])
             else:
                 start_ring = 0
                 disks = part.split('_')
                 try:
                     group_dict[current_parameter]['DISKS'].append(int(disks[1]))
+                    current_disk = disks[1]
                 except IndexError:
-                    group_dict[current_parameter]['DISKS'].append(1)
-        if 'RINGS' not in group_dict[current_parameter]:
-            group_dict[current_parameter]['RINGS'] = np.array([1,no_rings],dtype=int)
+                    group_dict[current_parameter]['DISKS'].append(1)  
+                    current_disk = '1'
+        for disk in  group_dict[current_parameter]['DISKS']:           
+            if f'{disk}' not in group_dict[current_parameter]['RINGS']:
+                group_dict[current_parameter]['RINGS'][f'{disk}'] = np.array([1,no_rings],dtype=int)
 
-        if group_dict[current_parameter]['RINGS'][0] == group_dict[current_parameter]['RINGS'][1] :
-            group_dict[current_parameter]['BLOCK'] = False
-          
-        log_statement += print_log(f'''GET_FIT_GROUPS: We determined the group {group_dict[current_parameter]}
+            if group_dict[current_parameter]['RINGS'][f'{disk}'][0] == group_dict[current_parameter]['RINGS'][f'{disk}'][1] \
+                and len(group_dict[current_parameter]['DISKS']) == 1:
+                group_dict[current_parameter]['BLOCK'] = False
+        if verbose:  
+            log_statement += print_log(f'''GET_FIT_GROUPS: We determined the group {group_dict[current_parameter]}
 ''',log) 
     return group_dict, log_statement
 
-def set_fitted_variations(fit_groups,log=False):
+def set_fitted_variations(fit_groups,log=False,verbose=True):
     log_statement = ''
     for group in fit_groups:
         fit_groups[group]['VARIATION'] = [0., 'a']
@@ -167,7 +180,8 @@ def set_fitted_variations(fit_groups,log=False):
     return log_statement
 
 def set_manual_variations(fit_groups,variation= None,\
-                                    cube_name= None,log=False):
+                                    cube_name= None,log=False,\
+                                    verbose=True):
     log_statement = ''
     hdr = fits.getheader(cube_name)
     if not 'CUNIT3' in hdr:
@@ -175,14 +189,16 @@ def set_manual_variations(fit_groups,variation= None,\
             hdr['CUNIT3'] = 'm/s'
         else:
             hdr['CUNIT3'] = 'km/s'
-        log_statement += print_log(f'''CLEAN_HEADER:
+        if verbose:
+            log_statement += print_log(f'''CLEAN_HEADER:
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 Your header did not have a unit for the third axis, that is bad policy.
 {"":8s} We have set it to {hdr['CUNIT3']}. Please ensure that this is correct.'
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 ''',log)
     if hdr['CUNIT3'].upper() == 'HZ' or hdr['CTYPE3'].upper() == 'FREQ':
-        log_statement += print_log('CLEAN_HEADER: FREQUENCY IS NOT A SUPPORTED VELOCITY AXIS.', log)
+        if verbose:
+            log_statement += print_log('CLEAN_HEADER: FREQUENCY IS NOT A SUPPORTED VELOCITY AXIS.', log)
         raise TirshakerInputError('The Cube has frequency as a velocity axis this is not supported')
 
     
@@ -190,7 +206,8 @@ Your header did not have a unit for the third axis, that is bad policy.
         hdr['CDELT3'] = hdr['CDELT3']/1000.
    
     for group in fit_groups:
-        log_statement += print_log(f'''SET_MANUAL_VARIATIONS: processing {group}
+        if verbose:
+            log_statement += print_log(f'''SET_MANUAL_VARIATIONS: processing {group}
 ''',log)
         groupbare = group.split('_')
         var_input = copy.deepcopy(getattr(variation,groupbare[0]))
@@ -225,25 +242,25 @@ def get_manual_groups(cfg, rings = 1, cube_name='None', log= False):
     groups = cfg.variations.VARY.split(',')
     # And lets translate to a dictionary with the various fitting parameter type and
     # first we disentangle the tirific fitting syntax into a dictionary
-    fit_groups,log_statement = get_groups(groups, no_rings = rings, log = log)
+    fit_groups,log_statement = get_groups(groups, no_rings = rings, log = log,verbose=cfg.general.verbose)
     #Then we set the  variation we want for the tirshaker for every group
     log_statement += set_manual_variations(fit_groups,variation=cfg.variations,\
-                                    cube_name=cube_name,log=log)
+                                    cube_name=cube_name,log=log,verbose=cfg.general.verbose)
     return fit_groups
 
 
-def get_fitted_groups(Tirific_Template, log= False):
+def get_fitted_groups(Tirific_Template, log= False,verbose=True):
     #First we get the groups that were fitted from file
     groups = Tirific_Template['VARY'].split(',')
     # And lets translate to a dictionary with the various fitting parameter type and
     # first we disentangle the tirific fitting syntax into a dictionary
-    fit_groups,log_statement = get_groups(groups, log = log)
+    fit_groups,log_statement = get_groups(groups, log = log,verbose=verbose)
     # Then we attach the fiiting variations to the groups
-    log_statement += get_variations(Tirific_Template, fit_groups, log=log)
+    log_statement += get_variations(Tirific_Template, fit_groups, log=log,verbose=verbose)
     # Check whether there are any errors present in the def file
-    log_statement += get_existing_errors(Tirific_Template, fit_groups,log=log)
+    log_statement += get_existing_errors(Tirific_Template, fit_groups,log=log,verbose=verbose)
     #Then we set the  variation we want for the tirshaker for every group
-    log_statement += set_fitted_variations(fit_groups,log=log)
+    log_statement += set_fitted_variations(fit_groups,log=log,verbose=verbose)
     return fit_groups
 
 get_fitted_groups.__doc__ =f'''
@@ -454,11 +471,11 @@ def set_individual_iteration(Tirific_Template, i,fit_groups, directory,tirific_c
             if fit_groups[group]['BLOCK']:
                 #If a block use the same variation for all rings in the groups
                 variations = [fit_groups[group]['VARIATION'][0]*random.uniform(-1.,1.)]\
-                    *(fit_groups[group]['RINGS'][1]-fit_groups[group]['RINGS'][0]+1)
+                    *(fit_groups[group]['RINGS']['EXTEND'][1]-fit_groups[group]['RINGS']['EXTEND'][0]+1)
             else:
                 #If not a block use a different variation for all rings in the groups
                 variations = [fit_groups[group]['VARIATION'][0]*random.uniform(-1.,1.) for x \
-                            in range(fit_groups[group]['RINGS'][0],fit_groups[group]['RINGS'][1]+1)]
+                            in range(fit_groups[group]['RINGS']['EXTEND'][0],fit_groups[group]['RINGS']['EXTEND'][1]+1)]
 
             for disk in fit_groups[group]['DISKS']:
                 para = group.split('_')[0]
@@ -467,11 +484,11 @@ def set_individual_iteration(Tirific_Template, i,fit_groups, directory,tirific_c
                 current_list = [float(x) for x in Current_Template[para].split()]
                 while len(current_list) < nur:
                     current_list.append(current_list[-1])
-                for l in range(fit_groups[group]['RINGS'][0],fit_groups[group]['RINGS'][1]+1):
+                for l in range(fit_groups[group]['RINGS'][f'{disk}'][0],fit_groups[group]['RINGS'][f'{disk}'][1]+1):
                     if fit_groups[group]['VARIATION'][1] == 'a':
-                        current_list[int(l-1)] += variations[int(l-fit_groups[group]['RINGS'][0])]
+                        current_list[int(l-1)] += variations[int(l-fit_groups[group]['RINGS'][f'{disk}'][0])]
                     else:
-                        current_list[int(l-1)] *= (1+variations[int(l-fit_groups[group]['RINGS'][0])])
+                        current_list[int(l-1)] *= (1+variations[int(l-fit_groups[group]['RINGS'][f'{disk}'][0])])
                 format = set_format(para)
                 Current_Template[para] = ' '.join([f'{x:{format}}' for x in current_list])
     write_tirific(Current_Template, name =f'{directory}/{name_in}',full_name= True )
@@ -771,10 +788,10 @@ def prepare_template(cfg, log=False):
     
     #Determine the error block from the  fit settings.
     if cfg.tirshaker.mode == 'fitted':
-        fit_groups = get_fitted_groups(Tirific_Template)
+        fit_groups = get_fitted_groups(Tirific_Template,verbose=cfg.general.verbose)
     elif cfg.tirshaker.mode == 'manual':
         fit_groups = get_manual_groups(cfg, rings = int(Tirific_Template['NUR']),\
-                            cube_name = Tirific_Template['INSET'])
+                            cube_name = Tirific_Template['INSET'],verbose=cfg.general.verbose)
     else:
         log_statement += print_log(f'''RUN_TIRSHAKER: The Tirshaker mode {cfg.tirshaker.mode} is not yet fully functional. Please use a different mode
 ''',log)
@@ -798,7 +815,6 @@ def prepare_template(cfg, log=False):
     else: 
         processes = 1
         if cfg.general.ncpu != -1:
-            print(f'We should not be doing this')
             if cfg.general.ncpu < 10:
                 Tirific_Template['NCORES'] = cfg.general.ncpu
             else:
@@ -820,7 +836,8 @@ def prepare_template(cfg, log=False):
     Tirific_Template['LOGNAME'] = 'Error_Shaker.log'
     Tirific_Template['TIRDEF'] = 'Error_Shaker_Out.def'
     out = [f'Parameter = {x} with block = {fit_groups[x]["BLOCK"]} for the rings {fit_groups[x]["RINGS"]} and disks {fit_groups[x]["DISKS"]} varied by {fit_groups[x]["VARIATION"][0]}. \n' for x in fit_groups ]
-    log_statement += print_log(f'''RUN_TIRSHAKER: We are shaking with the following parameters:
+    if cfg.general.verbose:
+        log_statement += print_log(f'''RUN_TIRSHAKER: We are shaking with the following parameters:
 {''.join(out)}
 ''',log)
     fit_groups['TO_COLLECT'] = []

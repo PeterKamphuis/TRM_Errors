@@ -24,6 +24,7 @@ class Tirshaker:
 @dataclass
 class General:
     input_cube: Optional[str] = None
+    verbose: bool = True
     ncpu: int = cpu_count()-1
     directory: str = os.getcwd()
     multiprocessing: bool = True
