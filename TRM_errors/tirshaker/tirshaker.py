@@ -29,6 +29,53 @@ class TirificOutputError(Exception):
 class TirshakerInputError(Exception):
     pass
 
+f'''
+ NOTE:
+ This is a re-imaged version of the code developed by G.I.G. Jozsa found at  https://github.com/gigjozsa/tirshaker.git
+
+ Takes a tirific def file filename and varies it iterations times
+ and runs it as many times to then calculate the mean and the
+ standard deviation of parameters that have been varied, both are
+ put into the tirific deffile outfilename.
+
+ With parameter_groups parameter groups are defined that are varied
+ homogeneously. This is a list of list of parameter names including
+ the '='-sign.  Caution! At this stage it is essential that in the
+ .def file there is the '='-sign directly attached to the parameter
+ names and that there is a space between parameter values and the
+ '='.
+
+ For each parameter group (list of parameter names), the values of
+ the rings specified in rings (which is a list of integers, the
+ list member corresponding to the parameter with the same index in
+ parameter_groups) are varied. Block is a list of indicators if the
+ values should be varied by ring (similar to the !-sign in the VARY
+ parameter of tirific) or as a whole, again indices indicating the
+ associated parameter group. Variation quantifies the maximum
+ variation of the parameter (again indices matching), with
+ variation type (indices matching) 'a' indicating an absolute
+ variation, 'r' indicating a relative one. Parameters are varied by
+ a uniform variation with maximal amplitude variation. So if a
+ parameter is x and v the variation, the parameter gets changed by
+ a number between -v and v in case the matching variation type is
+ 'a' and it gets changed by a number between -v*x and v*x if the
+ matching variation type is 'r'. Tirific is started iterations
+ times with varied input parameters but otherwise identical
+ parameters (except for output files which are suppressed) and the
+ results are recorded. For each varied parameter the mean and
+ standard deviation is calculated and returned in the output .def
+ file outfilename. In outfilename LOOPS is set to 0 and any output
+ parameter is preceded by a prefix outfileprefix. Random_seed is
+ the random seed to make the process deterministic. If mode ==
+ 'mad', the median and the MAD is calculated and, based on that,
+ values beyond a 3-sigma (sigma estimated from MAD) bracket around
+ the median are rejected before calculating mean and standard
+ deviation.
+
+'''
+
+
+
 '''Extract the existing errors if present'''
 def get_existing_errors(Tirific_Template, fit_groups, log =False, verbose=True):
     log_statement = ''
@@ -452,13 +499,14 @@ run_tirific.__doc__ =f'''
 '''
 
 def set_individual_iteration(Tirific_Template, i,fit_groups, directory,tirific_call, log = True,
-                             name_in = 'Error_Shaker_In.def', name_out = 'Shaken_Errors.def'):
+                             name_in = 'Error_Shaker_In.def', verbose=True):
     log_statement = ''
     Current_Template = copy.deepcopy(Tirific_Template)
     Current_Template['RESTARTID']= i
     nur = int(Current_Template['RESTARTID'])
     # Provide some info where we are
-    log_statement += print_log(f'''
+    if verbose:
+        log_statement += print_log(f'''
     ******************************
     ******************************
     *** Tirshaker iteration {i:02d} ***
@@ -494,13 +542,13 @@ def set_individual_iteration(Tirific_Template, i,fit_groups, directory,tirific_c
     write_tirific(Current_Template, name =f'{directory}/{name_in}',full_name= True )
     output = {'i': i, 'directory': directory, 'deffile': name_in,\
              'tirific_call': tirific_call, 'TO_COLLECT':fit_groups['TO_COLLECT'], 'log': log_statement,\
-             'tmp_name_out': Current_Template['TIRDEF']}
+             'tmp_name_out': Current_Template['TIRDEF'], 'verbose': verbose }
     return output
 
 def run_individual_iteration(dict_input, log = True):
     current_run = None
     current_run = run_tirific(current_run,deffile=dict_input['deffile'],work_dir = dict_input['directory'],tirific_call=dict_input['tirific_call'], \
-                            max_ini_time= 600)
+                            max_ini_time= 600, verbose=dict_input['verbose'])
     dict_input['log'] += finish_current_run(current_run,log=log)
         # Read the values of the pararameter groups
     output = {'log':dict_input['log']}    
@@ -516,8 +564,9 @@ def tirshaker_cleanup(fit_groups,cfg,mode = 'mad'):
 
     fit_groups['FINAL_ERR'] = {}     
     for parameter in fit_groups['TO_COLLECT']:
-        base_parameter= parameter.split('_')[0]
-        print(f'Processing {parameter}')
+        base_parameter= parameter.split('_')[0] 
+        if cfg.general.verbose:
+            log_statement += print_log(f'Processing {parameter}')
         all_iterations = np.array(fit_groups['COLLECTED'][parameter],dtype=float)
         fit_groups['FINAL_ERR'][parameter] = np.zeros(all_iterations[0].size) 
         minimum_err = getattr(cfg.min_errors,base_parameter)
@@ -538,236 +587,26 @@ def tirshaker_cleanup(fit_groups,cfg,mode = 'mad'):
                     fit_groups['FINAL_ERR'][parameter][ring] = final_err
                 else:
                     fit_groups['FINAL_ERR'][parameter][ring] = minimum_err
-                log_statement += print_log(f'TIRSHAKER: Parameter: {parameter} Ring: {ring} Pure average+-std: {average:.3e}+-{std:.3e} Median+-madsigma: {median:.3e}+-{madsigma:.3e} Average+-sigma filtered: {final:.3e}+-{final_err:.3e} \n')
-    print(fit_groups['FINAL_ERR'])
+                if cfg.general.verbose:
+                    log_statement += print_log(f'TIRSHAKER: Parameter: {parameter} Ring: {ring} Pure average+-std: {average:.3e}+-{std:.3e} Median+-madsigma: {median:.3e}+-{madsigma:.3e} Average+-sigma filtered: {final:.3e}+-{final_err:.3e} \n')
    
 
     for parameter in fit_groups['TO_COLLECT']:
-        print(parameter)
         format = set_format(parameter)
-        Tirific_Template.insert(f'{parameter}',f'# {parameter}_ERR',f"{' '.join([f'{x:{format}}' for x in fit_groups['FINAL_ERR'][parameter]])}") 
-        print(Tirific_Template[f'# {parameter}_ERR'])       
+        Tirific_Template.insert(f'{parameter}',f'# {parameter}_ERR',f"{' '.join([f'{x:{format}}' for x in fit_groups['FINAL_ERR'][parameter]])}")     
     # Put them into the output file
     # Write it to a copy of the file replacing the parameters
 
 
    
     write_tirific(Tirific_Template, name = f'{cfg.general.directory}/{cfg.tirshaker.directory}/{cfg.tirshaker.deffile_out}',full_name=True)
-    print(f'This is the final File with the errors {cfg.general.directory}/{cfg.tirshaker.directory}/{cfg.tirshaker.deffile_out}')
+    if cfg.general.verbose:
+        log_statement += print_log(f'This is the final File with the errors {cfg.general.directory}/{cfg.tirshaker.directory}/{cfg.tirshaker.deffile_out}')
     return log_statement
-#The actual tirshaker
-'''
-def tirshaker(Tirific_Template_In, log = False, directory = f'{os.getcwd()}/Error_Shaker/',\
-              fit_groups=None,tmp_name_out = 'Error_Shaker_Out.def',tirific_call = 'tirific',\
-              iterations = None, random_seed = None, mode = 'mad',initialization_mode = None,
-              out_file='Shaken_Errors.def', multiprocessing= True, ncpu = None):
-    Tirific_Template= copy.deepcopy(Tirific_Template_In)
-    log_statement = ''
-    # Initiate rng
-    if random_seed == None:
-        random_seed = random.seed(891)
-    if fit_groups == None:
-        raise TirshakerInputError(f'You have to define the interested groups, there is no default')
-    random.seed(random_seed)
-    # Find the number of rings
-    nur = int(Tirific_Template['NUR'])
-    # Here we collect all parameter_groups as listed above and convert the lists into numbers
-  
-    #Make sure some settings are blank
-    if ncpu == None:
-        ncpu = int(Tirific_Template['NCORES'])
-
-    if multiprocessing:
-        processes = 0
-        while ncpu > int(Tirific_Template['NCORES']):
-            processes += 1
-            ncpu -= int(Tirific_Template['NCORES'])
-    else: 
-        processes = 1
-        Tirific_Template['NCORES'] = ncpu
-    Tirific_Template['OUTSET'] = ''
-    Tirific_Template['PROGRESSLOG'] = ''
-    Tirific_Template['TEXTLOG'] = ''
-    Tirific_Template['TIRSMO'] = ''
-    Tirific_Template['COOLGAL'] = ''
-    Tirific_Template['TILT'] = ''
-    Tirific_Template['BIGTILT'] = ''
-    if processes == 1:
-        if initialization_mode == None:
-            if nur < 15:
-                Tirific_Template['INIMODE'] = 2
-            else:
-                Tirific_Template['INIMODE'] = 3
-        else:
-            Tirific_Template['INIMODE'] = initialization_mode
-    else:
-        Tirific_Template['INIMODE'] = 0.
-
-    Tirific_Template['LOGNAME'] = 'Error_Shaker.log'
-    Tirific_Template['TIRDEF'] = tmp_name_out
-    current_run='not set'
-    fit_groups['TO_COLLECT'] = []
-    fit_groups['COLLECTED'] = {}
-    for group in  fit_groups:
-        if group not in ['COLLECTED','TO_COLLECT']:
-            for disk in fit_groups[group]['DISKS']:
-                para = group.split('_')[0]
-                if disk != 1:
-                    para = f'{para}_{disk}'
-                if para not in  fit_groups['TO_COLLECT']:
-                    fit_groups['TO_COLLECT'].append(para)
-                fit_groups['COLLECTED'][para] = []
-
-    list_iterations = []
-    if processes > 1:
-        
-        #In case of multiprocessing we want to make sure to start with
-        #The big galaxies
-        #Setup an array of configs with locks
-
-        for i in range(iterations):
-            list_iterations.append([set_individual_iteration(Tirific_Template, i,fit_groups, \
-                                directory,tirific_call,name_in=f'Error_Shaker_In_{i}.def')\
-                                ])
-        #Get all intitial setups
-        with get_context("spawn").Pool(processes=processes) as pool:
-            print(f'Starting iterations with {processes} processes')
-            iteration_output = pool.starmap(run_individual_iteration, list_iterations)
-        for iter in iteration_output:
-            log_statement += iteration_output['log']
-            for parameter in fit_groups['TO_COLLECT']:
-                fit_groups['COLLECTED'][parameter].append(iteration_output[parameter])
-    else:
-        for i in range(iterations):
-
-            out = set_individual_iteration(Tirific_Template, i,fit_groups, directory,tirific_call,\
-                                          name_in=f'Error_Shaker_In.def')
-            log_statement += out['log']
-            current_run = run_tirific(current_run,deffile=out['deffile'],work_dir = out['directory'],tirific_call=tirific_call, \
-                                max_ini_time= int(300*(int(Tirific_Template['INIMODE'])+1)))
-     
-        # Read the values of the pararameter groups
-            for parameter in fit_groups['TO_COLLECT']:
-                fit_groups['COLLECTED'][parameter].append(load_tirific(f"{directory}/{tmp_name_out}",\
-                    Variables = [parameter],array=True))
-   
-    fit_groups['FINAL_ERR'] = {}     
-    for parameter in fit_groups['TO_COLLECT']:
-        print(f'Processing {parameter}')
-        all_iterations = np.array(fit_groups['COLLECTED'][parameter],dtype=float)
-        fit_groups['FINAL_ERR'][parameter] = np.zeros(all_iterations[0].size) 
-        for ring in range(all_iterations[0].size):
-            all_its = all_iterations[:,ring]
-            
-            if mode == 'mad':
-                median = np.median(all_its)
-                mad = stats.median_abs_deviation(all_its)
-                madsigma = stats.median_abs_deviation(all_its) 
-                average = np.average(all_its) 
-                # Wow, np.std is the standard deviation using N and not N-1 in the denominator. So one has to use
-                #std = np.sqrt(float(len(allparamsturned[j][k][l]))/float(len(allparamsturned[j][k][l])-1))*np.std(np.array(allparamsturned[j][k][l]))  
-                std = np.std(all_its,ddof=1)     
-                final = stats.tmean(all_its, (median-3*madsigma, median+3*madsigma))
-                final_err =  stats.tstd(all_its, (median-3*madsigma, median+3*madsigma))
-                fit_groups['FINAL_ERR'][parameter][ring] = final_err
-                log_statement += print_log(f'TIRSHAKER: Parameter: {parameter} Ring: {ring} Pure average+-std: {average:.3e}+-{std:.3e} Median+-madsigma: {median:.3e}+-{madsigma:.3e} Average+-sigma filtered: {final:.3e}+-{final_err:.3e} \n')
-    print(fit_groups['FINAL_ERR'])
-   
-
-    for parameter in fit_groups['TO_COLLECT']:
-        print(parameter)
-        format = set_format(parameter)
-        Tirific_Template.insert(f'{parameter}',f'# {parameter}_ERR',f"{' '.join([f'{x:{format}}' for x in fit_groups['FINAL_ERR'][parameter]])}") 
-        print(Tirific_Template[f'# {parameter}_ERR'])       
-    # Put them into the output file
-    # Write it to a copy of the file replacing the parameters
 
 
-    log_statement += finish_current_run(current_run,log=log)
-    write_tirific(Tirific_Template, name = f'{directory}/{out_file}',full_name=True)
-    print(f'{directory}/{out_file}')
-    return log_statement
-  
-   
-tirshaker.__doc__ =
-'''
-f'''
- NAME:
-    tirshaker
 
- PURPOSE:
-    obtain errors through a FAT implemention of tirshaker developed by G.I.G. Jozsa.
-
- CATEGORY:
-    run_functions
-
- INPUTS:
-    Configuration = Standard FAT configuration
-    outfileprefix (str)                    : Prefix to output parameters in outfilename
-    parameter_groups (list of lists of str): List of parameters (parameter groups) that will be changed simultaneously
-    rings (list of list of int)            : Ring numbers to be changed in parameter groups, starting at 1
-    block (list of bool)                   : Change all rings by the same value (if True) or single rings (False). If the latter, the same ring for different parameters is changed by the same value
-    variation (list of float)              : Amplitude of variation
-    variation_type (list of str)           : Type of variation, 'a' for absolute, 'r' for relative
-    iterations (int)                       : Number of re-runs
-    random_seed (int)                      : Seed for random generator
-    mode (str)                             : If 'mad' implements an outlier rejection.
-
- OPTIONAL INPUTS:
-
-
- OUTPUTS:
-
- OPTIONAL OUTPUTS:
-
- PROCEDURES CALLED:
-    Unspecified
-
- NOTE:
- This is a re-imaged version of the code developed by G.I.G. Jozsa found at  https://github.com/gigjozsa/tirshaker.git
-
- Takes a tirific def file filename and varies it iterations times
- and runs it as many times to then calculate the mean and the
- standard deviation of parameters that have been varied, both are
- put into the tirific deffile outfilename.
-
- With parameter_groups parameter groups are defined that are varied
- homogeneously. This is a list of list of parameter names including
- the '='-sign.  Caution! At this stage it is essential that in the
- .def file there is the '='-sign directly attached to the parameter
- names and that there is a space between parameter values and the
- '='.
-
- For each parameter group (list of parameter names), the values of
- the rings specified in rings (which is a list of integers, the
- list member corresponding to the parameter with the same index in
- parameter_groups) are varied. Block is a list of indicators if the
- values should be varied by ring (similar to the !-sign in the VARY
- parameter of tirific) or as a whole, again indices indicating the
- associated parameter group. Variation quantifies the maximum
- variation of the parameter (again indices matching), with
- variation type (indices matching) 'a' indicating an absolute
- variation, 'r' indicating a relative one. Parameters are varied by
- a uniform variation with maximal amplitude variation. So if a
- parameter is x and v the variation, the parameter gets changed by
- a number between -v and v in case the matching variation type is
- 'a' and it gets changed by a number between -v*x and v*x if the
- matching variation type is 'r'. Tirific is started iterations
- times with varied input parameters but otherwise identical
- parameters (except for output files which are suppressed) and the
- results are recorded. For each varied parameter the mean and
- standard deviation is calculated and returned in the output .def
- file outfilename. In outfilename LOOPS is set to 0 and any output
- parameter is preceded by a prefix outfileprefix. Random_seed is
- the random seed to make the process deterministic. If mode ==
- 'mad', the median and the MAD is calculated and, based on that,
- values beyond a 3-sigma (sigma estimated from MAD) bracket around
- the median are rejected before calculating mean and standard
- deviation.
-
-'''
-
-def prepare_template(cfg, log=False):
+def prepare_template(cfg, log=False,verbose=True):
     log_statement = ''
     #Read in the deffile
     Tirific_Template = tirific_template(filename=f'{cfg.general.directory}/{cfg.tirshaker.deffile_in}')
@@ -793,7 +632,8 @@ def prepare_template(cfg, log=False):
         fit_groups = get_manual_groups(cfg, rings = int(Tirific_Template['NUR']),\
                             cube_name = Tirific_Template['INSET'],verbose=cfg.general.verbose)
     else:
-        log_statement += print_log(f'''RUN_TIRSHAKER: The Tirshaker mode {cfg.tirshaker.mode} is not yet fully functional. Please use a different mode
+        if verbose:
+            log_statement += print_log(f'''RUN_TIRSHAKER: The Tirshaker mode {cfg.tirshaker.mode} is not yet fully functional. Please use a different mode
 ''',log)
         raise TirshakerInputError(f'''RUN_TIRSHAKER: The Tirshaker mode {cfg.tirshaker.mode} is not yet fully functional. Please use a different mode
 ''')
@@ -853,16 +693,3 @@ def prepare_template(cfg, log=False):
                 fit_groups['COLLECTED'][para] = []
     
     return log_statement,Tirific_Template,fit_groups,processes
-'''
-# This functions sets up the defirent parameters that are needed for tirshaker call
-def run_tirshaker(cfg, log=False):
-    log_statement, Tirific_Template,fit_groups = prepare_template(cfg, log=log)
-   
-
-                                    
-    log_statement += tirshaker(Tirific_Template, log = log, directory = f'{cfg.general.directory}/{cfg.tirshaker.directory}',\
-            fit_groups =fit_groups ,tirific_call = cfg.tirshaker.tirific,multiprocessing=cfg.general.multiprocessing,\
-            iterations = cfg.tirshaker.iterations, ncpu = cfg.general.ncpu,\
-            mode = 'mad',initialization_mode= cfg.tirshaker.inimode,out_file=cfg.tirshaker.deffile_out)
-'''
-    

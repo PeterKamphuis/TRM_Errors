@@ -81,7 +81,7 @@ configuration_file = ''')
 
                 out = set_individual_iteration(Tirific_Template, i,fit_groups,\
                             f'{cfg.general.directory}/{cfg.tirshaker.directory}', cfg.tirshaker.tirific,\
-                            name_in=f'Error_Shaker_In.def')
+                            name_in=f'Error_Shaker_In.def',verbose=cfg.general.verbose)
                 log_statement += out['log']
 
                 current_run = run_tirific(current_run,deffile=out['deffile'],work_dir = out['directory']\
@@ -102,7 +102,8 @@ configuration_file = ''')
             for i in range(cfg.tirshaker.iterations):
                 list_iterations.append([set_individual_iteration(Tirific_Template, i,fit_groups, \
                                     f'{cfg.general.directory}/{cfg.tirshaker.directory}', \
-                                    cfg.tirshaker.tirific,name_in=f'Error_Shaker_In_{i}.def')\
+                                    cfg.tirshaker.tirific,name_in=f'Error_Shaker_In_{i}.def',\
+                                    verbose=cfg.general.verbose)\
                                     ])
             # simply running tiriic would mess up with continuation/restart id
             with Manager() as loop_manager:
