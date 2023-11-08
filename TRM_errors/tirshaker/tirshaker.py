@@ -198,6 +198,8 @@ def get_groups(in_groups, no_rings = 3, log = False, verbose=True):
                 except IndexError:
                     group_dict[current_parameter]['DISKS'].append(1)  
                     current_disk = '1'
+        if len(group_dict[current_parameter]['RINGS']['EXTEND']) == 0:
+            group_dict[current_parameter]['RINGS']['EXTEND'] = np.array([1,no_rings],dtype=int)
         for disk in  group_dict[current_parameter]['DISKS']:           
             if f'{disk}' not in group_dict[current_parameter]['RINGS']:
                 group_dict[current_parameter]['RINGS'][f'{disk}'] = np.array([1,no_rings],dtype=int)
@@ -284,13 +286,14 @@ Your header did not have a unit for the third axis, that is bad policy.
     return log_statement
 
 
-def get_manual_groups(cfg, rings = 1, cube_name='None', log= False):
+def get_manual_groups(cfg, rings = 1, cube_name='None', log= False, verbose= True):
     #First we get the groups that were fitted from file
     groups = cfg.variations.VARY.split(',')
     # And lets translate to a dictionary with the various fitting parameter type and
     # first we disentangle the tirific fitting syntax into a dictionary
     fit_groups,log_statement = get_groups(groups, no_rings = rings, log = log,verbose=cfg.general.verbose)
     #Then we set the  variation we want for the tirshaker for every group
+
     log_statement += set_manual_variations(fit_groups,variation=cfg.variations,\
                                     cube_name=cube_name,log=log,verbose=cfg.general.verbose)
     return fit_groups
@@ -499,10 +502,11 @@ run_tirific.__doc__ =f'''
 '''
 
 def set_individual_iteration(Tirific_Template, i,fit_groups, directory,tirific_call, log = True,
-                             name_in = 'Error_Shaker_In.def', verbose=True):
+                             name_in = 'Error_Shaker_In.def',name_out = 'Error_Shaker_Out.def', verbose=True):
     log_statement = ''
     Current_Template = copy.deepcopy(Tirific_Template)
     Current_Template['RESTARTID']= i
+    Current_Template['TIRDEF'] = name_out
     nur = int(Current_Template['RESTARTID'])
     # Provide some info where we are
     if verbose:
@@ -555,6 +559,12 @@ def run_individual_iteration(dict_input, log = True):
     for parameter in dict_input['TO_COLLECT']:
             output[parameter] = load_tirific(f"{dict_input['directory']}/{dict_input['tmp_name_out']}",\
                     Variables = [parameter],array=True)
+    '''
+    if os.path.isfile(f"{dict_input['directory']}/{dict_input['tmp_name_out']}"):
+        os.remove(f"{dict_input['directory']}/{dict_input['tmp_name_out']}")
+    if os.path.isfile(f"{dict_input['directory']}/{dict_input['deffile']}"):
+        os.remove(f"{dict_input['directory']}/{dict_input['deffile']}")
+    '''
     return output
 
 def tirshaker_cleanup(fit_groups,cfg,mode = 'mad'):
