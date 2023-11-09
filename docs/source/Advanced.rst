@@ -111,6 +111,12 @@ General input
 
     print info or not
 
+    **calc_mode**
+
+    *str =  'mad'
+
+    anylis of the output, mad provides a filtered std over the iterations, 'fat' includes the difference beteen the final output and the median output in the itreations into the calculation. 
+
     **multiprocessing**
     
     *bool = True*

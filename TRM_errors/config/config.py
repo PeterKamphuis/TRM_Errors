@@ -28,6 +28,7 @@ class General:
     ncpu: int = cpu_count()-1
     directory: str = os.getcwd()
     multiprocessing: bool = True
+    calc_mode: str = 'mad'
     #font_file: str = "/usr/share/fonts/truetype/msttcorefonts/Times_New_Roman.ttf"
 
 @dataclass

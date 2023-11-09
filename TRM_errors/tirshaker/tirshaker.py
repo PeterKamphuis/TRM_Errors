@@ -99,15 +99,16 @@ def get_variations(Tirific_Template, fit_groups, log =False, verbose =True):
     log_statement = ''
     parmax = Tirific_Template['PARMAX'].split()
     parmin = Tirific_Template['PARMIN'].split()
-    delta = Tirific_Template['DELSTART'].split()
+    delta_start = Tirific_Template['DELSTART'].split() 
+    delta_end = Tirific_Template['DELEND'].split()
     for group in fit_groups:
         fit_groups[group]['PARMAX'] = float(parmax[fit_groups[group]['COLUMN_ID']])
         fit_groups[group]['PARMIN'] = float(parmin[fit_groups[group]['COLUMN_ID']])
-        fit_groups[group]['FIT_DELTA'] = float(delta[fit_groups[group]['COLUMN_ID']])
+        fit_groups[group]['FIT_DELTA'] = (float(delta_start[fit_groups[group]['COLUMN_ID']])+float(delta_end[fit_groups[group]['COLUMN_ID']]))/2.
     return log_statement
 
 '''Extract the fitting parameters from the fitting VARY line '''
-def get_groups(in_groups, no_rings = 3, log = False, verbose=True):
+def get_groups(in_groups, var_index = {}, no_rings = 3, log = False, verbose=True):
     group_dict = {}   
     log_statement = ''
     if verbose:
@@ -221,11 +222,11 @@ def set_fitted_variations(fit_groups,log=False,verbose=True):
                 ini_var = 0.
             else: 
                 ini_var = fit_groups[group]['ERRORS'][i]
-            if fit_groups[group]['FIT_DELTA'] > ini_var:
-                ini_var =  fit_groups[group]['FIT_DELTA']
+            if fit_groups[group]['FIT_DELTA']*3. > ini_var:
+                ini_var =  fit_groups[group]['FIT_DELTA']*3.
             if ini_var >  fit_groups[group]['VARIATION'][0]:
                 fit_groups[group]['VARIATION'][0] = ini_var
-        fit_groups[group]['VARIATION'][0] *= 5.
+        #fit_groups[group]['VARIATION'][0] *= 3.
     return log_statement
 
 def set_manual_variations(fit_groups,variation= None,\
@@ -305,6 +306,7 @@ def get_fitted_groups(Tirific_Template, log= False,verbose=True):
     # And lets translate to a dictionary with the various fitting parameter type and
     # first we disentangle the tirific fitting syntax into a dictionary
     fit_groups,log_statement = get_groups(groups, log = log,verbose=verbose)
+    # !!!! There is no need to check the varindex as  Tirific ignores those values and interpolates any way 
     # Then we attach the fiiting variations to the groups
     log_statement += get_variations(Tirific_Template, fit_groups, log=log,verbose=verbose)
     # Check whether there are any errors present in the def file
@@ -518,7 +520,7 @@ def set_individual_iteration(Tirific_Template, i,fit_groups, directory,tirific_c
     ******************************
 ''',log)
     #Looping through all block
-    for group in  fit_groups:
+    for group in fit_groups:
         if group not in ['COLLECTED','TO_COLLECT']:
             if fit_groups[group]['BLOCK']:
                 #If a block use the same variation for all rings in the groups
@@ -541,6 +543,12 @@ def set_individual_iteration(Tirific_Template, i,fit_groups, directory,tirific_c
                         current_list[int(l-1)] += variations[int(l-fit_groups[group]['RINGS'][f'{disk}'][0])]
                     else:
                         current_list[int(l-1)] *= (1+variations[int(l-fit_groups[group]['RINGS'][f'{disk}'][0])])
+                    #tirific does weird things when the initial values are outside parmax- pamin so check
+                    if current_list[int(l-1)] <  fit_groups[group]['PARMIN']:
+                        current_list[int(l-1)] = fit_groups[group]['PARMIN']+abs(current_list[int(l-1)]*0.05)
+                    if current_list[int(l-1)] >  fit_groups[group]['PARMAX']:
+                        current_list[int(l-1)] = fit_groups[group]['PARMAX']-abs(current_list[int(l-1)]*0.05)
+
                 format = set_format(para)
                 Current_Template[para] = ' '.join([f'{x:{format}}' for x in current_list])
     write_tirific(Current_Template, name =f'{directory}/{name_in}',full_name= True )
@@ -567,7 +575,7 @@ def run_individual_iteration(dict_input, log = True):
     '''
     return output
 
-def tirshaker_cleanup(fit_groups,cfg,mode = 'mad'):
+def tirshaker_cleanup(fit_groups,cfg):
     log_statement = ''
     #read the original input
     Tirific_Template = tirific_template(filename=f'{cfg.general.directory}/{cfg.tirshaker.deffile_in}')
@@ -578,12 +586,14 @@ def tirshaker_cleanup(fit_groups,cfg,mode = 'mad'):
         if cfg.general.verbose:
             log_statement += print_log(f'Processing {parameter}')
         all_iterations = np.array(fit_groups['COLLECTED'][parameter],dtype=float)
+        original = load_tirific(Tirific_Template,\
+                    Variables = [parameter],array=True)
         fit_groups['FINAL_ERR'][parameter] = np.zeros(all_iterations[0].size) 
         minimum_err = getattr(cfg.min_errors,base_parameter)
         for ring in range(all_iterations[0].size):
             all_its = all_iterations[:,ring]
             
-            if mode == 'mad':
+            if cfg.general.calc_mode == 'mad':
                 median = np.median(all_its)
                 mad = stats.median_abs_deviation(all_its)
                 madsigma = stats.median_abs_deviation(all_its) 
@@ -599,7 +609,24 @@ def tirshaker_cleanup(fit_groups,cfg,mode = 'mad'):
                     fit_groups['FINAL_ERR'][parameter][ring] = minimum_err
                 if cfg.general.verbose:
                     log_statement += print_log(f'TIRSHAKER: Parameter: {parameter} Ring: {ring} Pure average+-std: {average:.3e}+-{std:.3e} Median+-madsigma: {median:.3e}+-{madsigma:.3e} Average+-sigma filtered: {final:.3e}+-{final_err:.3e} \n')
-   
+            elif cfg.general.calc_mode == 'fat':
+                #Fat does a lot of corrections which are not necessarily accounted for  
+                #means that we should accont for the difference between the mean and the FAT value
+                median = np.median(all_its)
+                madsigma = stats.median_abs_deviation(all_its)
+                mad_final = stats.tmean(all_its, (median-3*madsigma, median+3*madsigma))
+                mad_final_err =  stats.tstd(all_its, (median-3*madsigma, median+3*madsigma))
+                final = float((original[ring]+median)/2.)
+                final_err = abs(np.sqrt((mad)**2+(abs(errors[parameter][ring]-medians[-1])/2.)**2))
+                if final_err > minimum_err:
+                    fit_groups['FINAL_ERR'][parameter][ring] = final_err
+                else:
+                    fit_groups['FINAL_ERR'][parameter][ring] = minimum_err
+                if cfg.general.verbose:
+                    log_statement += print_log(f'TIRSHAKER: Parameter: {parameter} Ring: {ring} Pure average+-std: {average:.3e}+-{std:.3e} Median+-madsigma: {median:.3e}+-{madsigma:.3e} Average+-sigma filtered: {final:.3e}+-{final_err:.3e} \n')
+ 
+          
+
 
     for parameter in fit_groups['TO_COLLECT']:
         format = set_format(parameter)
