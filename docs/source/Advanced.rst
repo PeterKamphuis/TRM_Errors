@@ -65,7 +65,10 @@ Tirshaker input
 
     *str = 'fitted'*
      
-     Fitted the settings and grouping will be read from the fits file and def file if manual they have to be provided
+     'fitted'= the settings and grouping will be read from the def file.
+      !!!!!!!!!!!  Manual is not functioning yet as the fitting parameters are not adapted!!!!!!!!!
+     'manual' = The variations and groups are read from the yaml file. 
+       !!!!!!!!!!!  Manual is not functioning yet as the fitting parameters are not adapted!!!!!!!!!  
 
 **inimode**
 
@@ -110,6 +113,12 @@ General input
     *bool = True*
 
     print info or not
+
+    **calc_mode**
+
+    *str =  'mad'
+
+    anylis of the output, mad provides a filtered std over the iterations, 'fat' includes the difference beteen the final output and the median output in the itreations into the calculation. 
 
     **multiprocessing**
     

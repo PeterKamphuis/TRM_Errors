@@ -103,6 +103,7 @@ configuration_file = ''')
                 list_iterations.append([set_individual_iteration(Tirific_Template, i,fit_groups, \
                                     f'{cfg.general.directory}/{cfg.tirshaker.directory}', \
                                     cfg.tirshaker.tirific,name_in=f'Error_Shaker_In_{i}.def',\
+                                    name_out=f'Error_Shaker_Out_{i}.def',
                                     verbose=cfg.general.verbose)\
                                     ])
             # simply running tiriic would mess up with continuation/restart id
