@@ -567,12 +567,12 @@ def run_individual_iteration(dict_input, log = True):
     for parameter in dict_input['TO_COLLECT']:
             output[parameter] = load_tirific(f"{dict_input['directory']}/{dict_input['tmp_name_out']}",\
                     Variables = [parameter],array=True)
-    '''
+    # Remove the files after reading.    
     if os.path.isfile(f"{dict_input['directory']}/{dict_input['tmp_name_out']}"):
         os.remove(f"{dict_input['directory']}/{dict_input['tmp_name_out']}")
     if os.path.isfile(f"{dict_input['directory']}/{dict_input['deffile']}"):
         os.remove(f"{dict_input['directory']}/{dict_input['deffile']}")
-    '''
+
     return output
 
 def tirshaker_cleanup(fit_groups,cfg):
