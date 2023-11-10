@@ -364,7 +364,7 @@ def run_tirific(current_run, work_dir = os.getcwd(),deffile = 'tirific.def' ,tir
         with open(restart_file,'a') as file:
             file.write("Restarting from previous run \n")
     else:
-        log_statement += print_log(f'''RUN_TIRIFIC: We are inizializing a new TiRiFiC in {work_dir} with the file {deffile}
+        log_statement += print_log(f'''RUN_TIRIFIC: We are initializing a new TiRiFiC in {work_dir} with the file {deffile}
 ''',log)
         with open(restart_file,'w') as file:
             file.write("Initialized a new run \n")
@@ -617,13 +617,13 @@ def tirshaker_cleanup(fit_groups,cfg):
                 mad_final = stats.tmean(all_its, (median-3*madsigma, median+3*madsigma))
                 mad_final_err =  stats.tstd(all_its, (median-3*madsigma, median+3*madsigma))
                 final = float((original[ring]+median)/2.)
-                final_err = abs(np.sqrt((mad)**2+(abs(errors[parameter][ring]-medians[-1])/2.)**2))
+                final_err = abs(np.sqrt((mad_final_err)**2+(abs(original[ring]-median)/2.)**2))
                 if final_err > minimum_err:
                     fit_groups['FINAL_ERR'][parameter][ring] = final_err
                 else:
                     fit_groups['FINAL_ERR'][parameter][ring] = minimum_err
                 if cfg.general.verbose:
-                    log_statement += print_log(f'TIRSHAKER: Parameter: {parameter} Ring: {ring} Pure average+-std: {average:.3e}+-{std:.3e} Median+-madsigma: {median:.3e}+-{madsigma:.3e} Average+-sigma filtered: {final:.3e}+-{final_err:.3e} \n')
+                    log_statement += print_log(f'TIRSHAKER: Parameter: {parameter} Ring: {ring} Final+-std: {final:.3e}+-{final_err:.3e} Median+-madsigma: {median:.3e}+-{madsigma:.3e} Average+-sigma filtered: {mad_final:.3e}+-{mad_final_err:.3e} \n')
  
           
 
@@ -668,6 +668,7 @@ def prepare_template(cfg, log=False,verbose=True):
     elif cfg.tirshaker.mode == 'manual':
         fit_groups = get_manual_groups(cfg, rings = int(Tirific_Template['NUR']),\
                             cube_name = Tirific_Template['INSET'],verbose=cfg.general.verbose)
+        #!!!!!!!!!!!!!!!!!!!!!!!!For this to wrok properly we should set the fitting parameters to the template
     else:
         if verbose:
             log_statement += print_log(f'''RUN_TIRSHAKER: The Tirshaker mode {cfg.tirshaker.mode} is not yet fully functional. Please use a different mode

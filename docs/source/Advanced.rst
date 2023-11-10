@@ -65,7 +65,10 @@ Tirshaker input
 
     *str = 'fitted'*
      
-     Fitted the settings and grouping will be read from the fits file and def file if manual they have to be provided
+     'fitted'= the settings and grouping will be read from the def file.
+      !!!!!!!!!!!  Manual is not functioning yet as the fitting parameters are not adapted!!!!!!!!!
+     'manual' = The variations and groups are read from the yaml file. 
+       !!!!!!!!!!!  Manual is not functioning yet as the fitting parameters are not adapted!!!!!!!!!  
 
 **inimode**
 
