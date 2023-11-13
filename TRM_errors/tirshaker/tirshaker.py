@@ -688,10 +688,14 @@ def prepare_template(cfg, log=False,verbose=True):
         Tirific_Template['INSET'] = f"{cfg.general.input_cube}"
 
     if cfg.general.multiprocessing:
-        processes = 0
-        while cfg.general.ncpu >= int(Tirific_Template['NCORES']):
+        processes = 1
+        tmpcpu = cfg.general.ncpu
+        tmpcpu -= int(Tirific_Template['NCORES'])
+        while  tmpcpu  >= int(Tirific_Template['NCORES']):
             processes += 1
-            cfg.general.ncpu -= int(Tirific_Template['NCORES'])
+            tmpcpu  -= int(Tirific_Template['NCORES'])
+        if processes == 1:
+           Tirific_Template['NCORES'] = f'{cfg.general.ncpu}' 
     else: 
         processes = 1
         if cfg.general.ncpu != -1:
