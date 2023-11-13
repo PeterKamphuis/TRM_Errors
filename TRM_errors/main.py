@@ -81,12 +81,20 @@ configuration_file = ''')
 
                 out = set_individual_iteration(Tirific_Template, i,fit_groups,\
                             f'{cfg.general.directory}/{cfg.tirshaker.directory}', cfg.tirshaker.tirific,\
-                            name_in=f'Error_Shaker_In.def',verbose=cfg.general.verbose)
+                            name_in=f'Error_Shaker_In.def',verbose=cfg.general.verbose,clean= cfg.general.clean)
                 log_statement += out['log']
 
                 current_run = run_tirific(current_run,deffile=out['deffile'],work_dir = out['directory']\
                                     ,tirific_call= cfg.tirshaker.tirific, \
                                     max_ini_time= int(300*(int(Tirific_Template['INIMODE'])+1)))
+                if not cfg.general.clean:
+                    source_in = f"{out['directory']}/{out['deffile']}"
+                    target_in = f"{out['directory']}/Error_Shaker_In_{i}.def"
+                    source_out = f"{out['directory']}/{out['tmp_name_out']}"
+                    target_out = f"{out['directory']}/Error_Shaker_Out_{i}.def"
+                    os.system(f'''cp {source_in} {target_in}''')
+                    os.system(f'''cp {source_out} {target_out}''')
+
             
             # Read the values of the pararameter groups
                 for parameter in fit_groups['TO_COLLECT']:
@@ -104,7 +112,7 @@ configuration_file = ''')
                                     f'{cfg.general.directory}/{cfg.tirshaker.directory}', \
                                     cfg.tirshaker.tirific,name_in=f'Error_Shaker_In_{i}.def',\
                                     name_out=f'Error_Shaker_Out_{i}.def',
-                                    verbose=cfg.general.verbose)\
+                                    verbose=cfg.general.verbose,clean= cfg.general.clean) \
                                     ])
             # simply running tiriic would mess up with continuation/restart id
             with Manager() as loop_manager:

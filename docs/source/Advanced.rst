@@ -125,7 +125,14 @@ General input
     *bool = True*
     
     **font_file**
+    
     *str = "/usr/share/fonts/truetype/msttcorefonts/Times_New_Roman.ttf"*
+
+    **clean**
+
+    *bool = True*
+
+    If set to false then all input and output defiles will be maintain in the output directory
 
 
 Variations input

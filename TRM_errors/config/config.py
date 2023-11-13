@@ -29,6 +29,7 @@ class General:
     directory: str = os.getcwd()
     multiprocessing: bool = True
     calc_mode: str = 'mad'
+    clean: bool = True
     #font_file: str = "/usr/share/fonts/truetype/msttcorefonts/Times_New_Roman.ttf"
 
 @dataclass

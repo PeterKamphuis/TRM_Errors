@@ -504,7 +504,8 @@ run_tirific.__doc__ =f'''
 '''
 
 def set_individual_iteration(Tirific_Template, i,fit_groups, directory,tirific_call, log = True,
-                             name_in = 'Error_Shaker_In.def',name_out = 'Error_Shaker_Out.def', verbose=True):
+                            name_in = 'Error_Shaker_In.def',name_out = 'Error_Shaker_Out.def', verbose=True,\
+                            clean = True):
     log_statement = ''
     Current_Template = copy.deepcopy(Tirific_Template)
     Current_Template['RESTARTID']= i
@@ -554,7 +555,7 @@ def set_individual_iteration(Tirific_Template, i,fit_groups, directory,tirific_c
     write_tirific(Current_Template, name =f'{directory}/{name_in}',full_name= True )
     output = {'i': i, 'directory': directory, 'deffile': name_in,\
              'tirific_call': tirific_call, 'TO_COLLECT':fit_groups['TO_COLLECT'], 'log': log_statement,\
-             'tmp_name_out': Current_Template['TIRDEF'], 'verbose': verbose }
+             'tmp_name_out': Current_Template['TIRDEF'], 'verbose': verbose, 'clean': clean }
     return output
 
 def run_individual_iteration(dict_input, log = True):
@@ -568,10 +569,11 @@ def run_individual_iteration(dict_input, log = True):
             output[parameter] = load_tirific(f"{dict_input['directory']}/{dict_input['tmp_name_out']}",\
                     Variables = [parameter],array=True)
     # Remove the files after reading.    
-    if os.path.isfile(f"{dict_input['directory']}/{dict_input['tmp_name_out']}"):
-        os.remove(f"{dict_input['directory']}/{dict_input['tmp_name_out']}")
-    if os.path.isfile(f"{dict_input['directory']}/{dict_input['deffile']}"):
-        os.remove(f"{dict_input['directory']}/{dict_input['deffile']}")
+    if dict_input['clean']:
+        if os.path.isfile(f"{dict_input['directory']}/{dict_input['tmp_name_out']}"):
+            os.remove(f"{dict_input['directory']}/{dict_input['tmp_name_out']}")
+        if os.path.isfile(f"{dict_input['directory']}/{dict_input['deffile']}"):
+            os.remove(f"{dict_input['directory']}/{dict_input['deffile']}")
 
     return output
 
@@ -687,7 +689,7 @@ def prepare_template(cfg, log=False,verbose=True):
 
     if cfg.general.multiprocessing:
         processes = 0
-        while cfg.general.ncpu > int(Tirific_Template['NCORES']):
+        while cfg.general.ncpu >= int(Tirific_Template['NCORES']):
             processes += 1
             cfg.general.ncpu -= int(Tirific_Template['NCORES'])
     else: 
