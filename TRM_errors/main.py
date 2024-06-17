@@ -83,7 +83,7 @@ configuration_file = ''')
                             f'{cfg.general.directory}/{cfg.tirshaker.directory}', cfg.tirshaker.tirific,\
                             name_in=f'Error_Shaker_In.def',verbose=cfg.general.verbose,clean= cfg.general.clean)
                 log_statement += out['log']
-
+               
                 current_run = run_tirific(current_run,deffile=out['deffile'],work_dir = out['directory']\
                                     ,tirific_call= cfg.tirshaker.tirific, \
                                     max_ini_time= int(300*(int(Tirific_Template['INIMODE'])+1)))
