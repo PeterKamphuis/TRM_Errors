@@ -553,7 +553,6 @@ def set_individual_iteration(Tirific_Template, i,fit_groups, directory,tirific_c
                     current_list.append(current_list[-1])
                 for l in range(fit_groups[group]['RINGS'][f'{disk}'][0],fit_groups[group]['RINGS'][f'{disk}'][1]+1):
                     if fit_groups[group]['VARIATION'][1] == 'a':
-                        print(l-1,fit_groups[group])
                         current_list[int(l-1)] += variations[int(l-fit_groups[group]['RINGS'][f'{disk}'][0])]
                     else:
                         current_list[int(l-1)] *= (1+variations[int(l-fit_groups[group]['RINGS'][f'{disk}'][0])])
