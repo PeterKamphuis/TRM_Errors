@@ -709,6 +709,7 @@ def prepare_template(cfg, log=False,verbose=True):
             tmpcpu  -= int(Tirific_Template['NCORES'])
         if processes == 1:
            Tirific_Template['NCORES'] = f'{cfg.general.ncpu}' 
+
     else: 
         processes = 1
         if cfg.general.ncpu != -1:
@@ -716,7 +717,7 @@ def prepare_template(cfg, log=False,verbose=True):
                 Tirific_Template['NCORES'] = cfg.general.ncpu
             else:
                 Tirific_Template['NCORES'] = 10
-
+  
     Tirific_Template['OUTSET'] = ''
     Tirific_Template['PROGRESSLOG'] = ''
     Tirific_Template['TEXTLOG'] = ''
@@ -729,9 +730,9 @@ def prepare_template(cfg, log=False,verbose=True):
             Tirific_Template['INIMODE'] = cfg.tirshaker.inimode
         else:
             if Tirific_Template['INIMODE'] == '':
-                Tirific_Template['INIMODE'] = 0. 
+                Tirific_Template['INIMODE'] = 0 
     else:
-        Tirific_Template['INIMODE'] = 0.
+        Tirific_Template['INIMODE'] = 0
 
     Tirific_Template['LOGNAME'] = 'Error_Shaker.log'
     Tirific_Template['TIRDEF'] = 'Error_Shaker_Out.def'

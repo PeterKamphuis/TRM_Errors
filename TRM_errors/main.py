@@ -5,7 +5,7 @@
 #from optparse import OptionParser
 from omegaconf import OmegaConf
 from TRM_errors.config.config import defaults
-from TRM_errors.common.common import load_tirific
+from TRM_errors.common.common import load_tirific,check_cpu
 import numpy as np
 import sys
 import os
@@ -67,6 +67,8 @@ If you want to provide a config file please give the correct name.
 Else press CTRL-C to abort.
 configuration_file = ''')
     cfg = OmegaConf.merge(cfg,inputconf) 
+    cfg = check_cpu(cfg)
+    
     # for some dumb reason pools have to be called from main
     if cfg.tirshaker.enable:
         from TRM_errors.tirshaker.tirshaker import prepare_template, set_individual_iteration,\
