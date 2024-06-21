@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from multiprocessing import cpu_count
+import psutil
 from omegaconf import MISSING
 from typing import List, Optional
 import os
@@ -25,7 +25,11 @@ class Tirshaker:
 class General:
     input_cube: Optional[str] = None
     verbose: bool = True
-    ncpu: int = cpu_count()-1
+    try:
+        ncpu: int = len(psutil.Process().cpu_affinity())-1
+    except AttributeError:
+        ncpu: int = psutil.cpu_count()-1
+   
     directory: str = os.getcwd()
     multiprocessing: bool = True
     calc_mode: str = 'mad'
