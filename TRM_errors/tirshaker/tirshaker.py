@@ -123,6 +123,11 @@ def get_groups(in_groups, var_index = {}, no_rings = 3, log = False, verbose=Tru
         #first replace i with ! if i is present
         if  parameter[0][0] == 'i':
             parameter[0] = f'!{parameter[0][1:]}'
+        #Tirific accepts spaces after the !
+        if  parameter[0][0] == '!' and len(parameter[0]) == 1:
+            parameter[0] = f'!{parameter[1]}'
+            parameter.pop(1)
+      
         count = 1
         #current_parameter = f'{re.sub("[^a-zA-Z]+", "", parameter[0])}_{count}'
         base_parameter =  f'{parameter[0].split("_")[0]}'
@@ -147,70 +152,77 @@ def get_groups(in_groups, var_index = {}, no_rings = 3, log = False, verbose=Tru
         else:
             group_dict[current_parameter]['BLOCK'] = True
         group_dict[current_parameter]['RINGS'] = {'EXTEND': []}
-        start_ring = 0
-        for i,part in enumerate(parameter[1:]):
-            if part[0].isnumeric():
-                if start_ring == 0:
-                    if ':' in part:
-                        in_rings = [int(x) for x in part.split(':')]
-                        if in_rings.sort():
-                            in_rings.sort()
-                        start_ring = in_rings[0]
-                    else:
-                        start_ring = int(part)
-                last = False
-                try: 
-                    if parameter[i+2][0].isnumeric():
-                    #if the next batch is also numeri we continue to the end 
-                        pass
-                    else:
-                        last =True
-                except IndexError:
-                    last=True
 
-                if last:
-                    if ':' in part:
-                        in_rings = [int(x) for x in part.split(':')]
-                        if in_rings.sort():
-                            in_rings.sort()
-                        in_rings = np.array([start_ring,in_rings[-1]],dtype=int)      
-                    else:
-                        in_rings = np.array([int(start_ring),int(part)])
+        # for singular parameters we do not have any rings
+        if base_parameter in ['CONDISP']: 
+            group_dict[current_parameter]['RINGS']['EXTEND'] =np.array([1,1])
+            group_dict[current_parameter]['RINGS']['1'] = np.array([1,1])
+        else:    
+            start_ring = 0
+            for i,part in enumerate(parameter[1:]):
+                if part[0].isnumeric():
+                    if start_ring == 0:
+                        if ':' in part:
+                            in_rings = [int(x) for x in part.split(':')]
+                            if in_rings.sort():
+                                in_rings.sort()
+                            start_ring = in_rings[0]
+                        else:
+                            start_ring = int(part)
+                    last = False
+                    try: 
+                        if parameter[i+2][0].isnumeric():
+                        #if the next batch is also numeri we continue to the end 
+                            pass
+                        else:
+                            last =True
+                    except IndexError:
+                        last=True
 
-                    if current_disk not in group_dict[current_parameter]['RINGS']:
-                        group_dict[current_parameter]['RINGS'][current_disk] = in_rings
-                    else:
-                        if verbose:
-                            print(f'processing this group {group} for {current_parameter} and we have {in_rings} where we already have {group_dict[current_parameter]["RINGS"][current_disk]}')
-                        raise DefFileError("The VARY settings in this deffile are not acceptable you have multiple indication of the same disk in one block.")
-                    if len(group_dict[current_parameter]['RINGS']['EXTEND']) == 0:
-                        group_dict[current_parameter]['RINGS']['EXTEND'] = in_rings
-                    else:
-                        group_dict[current_parameter]['RINGS']['EXTEND'][0] = \
-                            np.nanmin([group_dict[current_parameter]['RINGS']['EXTEND'][0],in_rings[0]]) 
-                        group_dict[current_parameter]['RINGS']['EXTEND'][1] = \
-                            np.nanmax([group_dict[current_parameter]['RINGS']['EXTEND'][1],in_rings[1]])
-            else:
-                start_ring = 0
-                disks = part.split('_')
-                try:
-                    group_dict[current_parameter]['DISKS'].append(int(disks[1]))
-                    current_disk = disks[1]
-                except IndexError:
-                    group_dict[current_parameter]['DISKS'].append(1)  
-                    current_disk = '1'
-        if len(group_dict[current_parameter]['RINGS']['EXTEND']) == 0:
-            group_dict[current_parameter]['RINGS']['EXTEND'] = np.array([1,no_rings],dtype=int)
-        for disk in  group_dict[current_parameter]['DISKS']:           
-            if f'{disk}' not in group_dict[current_parameter]['RINGS']:
-                group_dict[current_parameter]['RINGS'][f'{disk}'] = np.array([1,no_rings],dtype=int)
+                    if last:
+                        if ':' in part:
+                            in_rings = [int(x) for x in part.split(':')]
+                            if in_rings.sort():
+                                in_rings.sort()
+                            in_rings = np.array([start_ring,in_rings[-1]],dtype=int)      
+                        else:
+                            in_rings = np.array([int(start_ring),int(part)])
 
-            if group_dict[current_parameter]['RINGS'][f'{disk}'][0] == group_dict[current_parameter]['RINGS'][f'{disk}'][1] \
-                and len(group_dict[current_parameter]['DISKS']) == 1:
-                group_dict[current_parameter]['BLOCK'] = False
+                        if current_disk not in group_dict[current_parameter]['RINGS']:
+                            group_dict[current_parameter]['RINGS'][current_disk] = in_rings
+                        else:
+                            if verbose:
+                                print(f'processing this group {group} for {current_parameter} and we have {in_rings} where we already have {group_dict[current_parameter]["RINGS"][current_disk]}')
+                            raise DefFileError("The VARY settings in this deffile are not acceptable you have multiple indication of the same disk in one block.")
+                        if len(group_dict[current_parameter]['RINGS']['EXTEND']) == 0:
+                            group_dict[current_parameter]['RINGS']['EXTEND'] = in_rings
+                        else:
+                            group_dict[current_parameter]['RINGS']['EXTEND'][0] = \
+                                np.nanmin([group_dict[current_parameter]['RINGS']['EXTEND'][0],in_rings[0]]) 
+                            group_dict[current_parameter]['RINGS']['EXTEND'][1] = \
+                                np.nanmax([group_dict[current_parameter]['RINGS']['EXTEND'][1],in_rings[1]])
+                else:
+                    start_ring = 0
+                    disks = part.split('_')
+                    try:
+                        group_dict[current_parameter]['DISKS'].append(int(disks[1]))
+                        current_disk = disks[1]
+                    except IndexError:
+                        group_dict[current_parameter]['DISKS'].append(1)  
+                        current_disk = '1'
+            if len(group_dict[current_parameter]['RINGS']['EXTEND']) == 0:
+                group_dict[current_parameter]['RINGS']['EXTEND'] = np.array([1,no_rings],dtype=int)
+            for disk in  group_dict[current_parameter]['DISKS']:           
+                if f'{disk}' not in group_dict[current_parameter]['RINGS']:
+                    group_dict[current_parameter]['RINGS'][f'{disk}'] = np.array([1,no_rings],dtype=int)
+
+                if group_dict[current_parameter]['RINGS'][f'{disk}'][0] == group_dict[current_parameter]['RINGS'][f'{disk}'][1] \
+                    and len(group_dict[current_parameter]['DISKS']) == 1:
+                    group_dict[current_parameter]['BLOCK'] = False
         if verbose:  
             log_statement += print_log(f'''GET_FIT_GROUPS: We determined the group {group_dict[current_parameter]}
 ''',log) 
+  
     return group_dict, log_statement
 
 def set_fitted_variations(fit_groups,log=False,verbose=True):
@@ -504,7 +516,8 @@ run_tirific.__doc__ =f'''
 '''
 
 def set_individual_iteration(Tirific_Template, i,fit_groups, directory,tirific_call, log = True,
-                             name_in = 'Error_Shaker_In.def',name_out = 'Error_Shaker_Out.def', verbose=True):
+                            name_in = 'Error_Shaker_In.def',name_out = 'Error_Shaker_Out.def', verbose=True,\
+                            clean = True):
     log_statement = ''
     Current_Template = copy.deepcopy(Tirific_Template)
     Current_Template['RESTARTID']= i
@@ -554,7 +567,7 @@ def set_individual_iteration(Tirific_Template, i,fit_groups, directory,tirific_c
     write_tirific(Current_Template, name =f'{directory}/{name_in}',full_name= True )
     output = {'i': i, 'directory': directory, 'deffile': name_in,\
              'tirific_call': tirific_call, 'TO_COLLECT':fit_groups['TO_COLLECT'], 'log': log_statement,\
-             'tmp_name_out': Current_Template['TIRDEF'], 'verbose': verbose }
+             'tmp_name_out': Current_Template['TIRDEF'], 'verbose': verbose, 'clean': clean }
     return output
 
 def run_individual_iteration(dict_input, log = True):
@@ -567,12 +580,13 @@ def run_individual_iteration(dict_input, log = True):
     for parameter in dict_input['TO_COLLECT']:
             output[parameter] = load_tirific(f"{dict_input['directory']}/{dict_input['tmp_name_out']}",\
                     Variables = [parameter],array=True)
-    '''
-    if os.path.isfile(f"{dict_input['directory']}/{dict_input['tmp_name_out']}"):
-        os.remove(f"{dict_input['directory']}/{dict_input['tmp_name_out']}")
-    if os.path.isfile(f"{dict_input['directory']}/{dict_input['deffile']}"):
-        os.remove(f"{dict_input['directory']}/{dict_input['deffile']}")
-    '''
+    # Remove the files after reading.    
+    if dict_input['clean']:
+        if os.path.isfile(f"{dict_input['directory']}/{dict_input['tmp_name_out']}"):
+            os.remove(f"{dict_input['directory']}/{dict_input['tmp_name_out']}")
+        if os.path.isfile(f"{dict_input['directory']}/{dict_input['deffile']}"):
+            os.remove(f"{dict_input['directory']}/{dict_input['deffile']}")
+
     return output
 
 def tirshaker_cleanup(fit_groups,cfg):
@@ -686,10 +700,15 @@ def prepare_template(cfg, log=False,verbose=True):
         Tirific_Template['INSET'] = f"{cfg.general.input_cube}"
 
     if cfg.general.multiprocessing:
-        processes = 0
-        while cfg.general.ncpu > int(Tirific_Template['NCORES']):
+        processes = 1
+        tmpcpu = cfg.general.ncpu
+        tmpcpu -= int(Tirific_Template['NCORES'])
+        while  tmpcpu  >= int(Tirific_Template['NCORES']):
             processes += 1
-            cfg.general.ncpu -= int(Tirific_Template['NCORES'])
+            tmpcpu  -= int(Tirific_Template['NCORES'])
+        if processes == 1:
+           Tirific_Template['NCORES'] = f'{cfg.general.ncpu}' 
+
     else: 
         processes = 1
         if cfg.general.ncpu != -1:
@@ -697,7 +716,7 @@ def prepare_template(cfg, log=False,verbose=True):
                 Tirific_Template['NCORES'] = cfg.general.ncpu
             else:
                 Tirific_Template['NCORES'] = 10
-
+  
     Tirific_Template['OUTSET'] = ''
     Tirific_Template['PROGRESSLOG'] = ''
     Tirific_Template['TEXTLOG'] = ''
@@ -708,8 +727,11 @@ def prepare_template(cfg, log=False,verbose=True):
     if processes == 1:
         if cfg.tirshaker.inimode != -1:
             Tirific_Template['INIMODE'] = cfg.tirshaker.inimode
+        else:
+            if Tirific_Template['INIMODE'] == '':
+                Tirific_Template['INIMODE'] = 0 
     else:
-        Tirific_Template['INIMODE'] = 0.
+        Tirific_Template['INIMODE'] = 0
 
     Tirific_Template['LOGNAME'] = 'Error_Shaker.log'
     Tirific_Template['TIRDEF'] = 'Error_Shaker_Out.def'

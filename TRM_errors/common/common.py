@@ -5,6 +5,7 @@ import os
 import numpy as np
 import traceback
 import signal
+import psutil
 
 from collections import OrderedDict
 
@@ -55,6 +56,18 @@ class Proper_Dictionary(OrderedDict):
 Proper_Dictionary.__doc__=f'''
 A class of ordered dictionary where keys can be inserted in at specified locations or at the end.
 '''
+
+
+def check_cpu(cfg):
+    '''Check that the amount of cpus is not exceeding the maximum available'''
+    try:
+        max_ncpu: int = len(psutil.Process().cpu_affinity())-1
+    except AttributeError:
+        max_ncpu: int = psutil.cpu_count()-1
+    if cfg.general.ncpu > max_ncpu:
+        cfg.general.ncpu = max_ncpu
+    return cfg
+
 def check_pid(pid):        
     """ Check whether titific is running. """
     try:
