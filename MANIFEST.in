@@ -3,3 +3,4 @@ recursive-include TRM_errors/ *.py
 recursive-include TRM_errors/config *.py
 recursive-include TRM_errors/common *.py
 recursive-include TRM_errors/tirshaker *.py
+recursive-include TRM_errors/tirshaker *.txt
