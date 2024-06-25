@@ -19,7 +19,7 @@ requirements = [
 ]
 
 PACKAGE_NAME = 'TRM_errors'
-__version__ = '0.0.6'
+__version__ = '0.0.7'
 
 
 with open("README.md", "r") as fh:

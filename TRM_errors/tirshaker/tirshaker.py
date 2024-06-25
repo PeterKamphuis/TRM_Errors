@@ -276,7 +276,7 @@ Your header did not have a unit for the third axis, that is bad policy.
         if var_input[1].lower() == 'res':
             if var_input[2].lower() == 'arcsec':
                 var_input[0] = var_input[0] * hdr['BMAJ']*3600.
-            elif var_input[2].lower() == 'degree':
+            elif var_input[2].lower() == 'degrees':
                 var_input[0] = var_input[0] * hdr['BMAJ']
             elif var_input[2].lower() == 'angle':
                 raise TirshakerInputError(f''' We have no way to relate an angle to the resolution of the cube''')
@@ -284,7 +284,7 @@ Your header did not have a unit for the third axis, that is bad policy.
                 var_input[0] = var_input[0] * hdr['CDELT3']
             elif var_input[2].lower() == 'm/s':
                 var_input[0] = var_input[0] * hdr['CDELT3']*1000.
-            elif var_input[2].lower() == 'jy/arcsec**2':
+            elif var_input[2].lower() == 'Jy*km/s/arcsec^2':
                 if 'NOISE' in hdr or 'FATNOISE' in hdr:
                     try:
                         noise = hdr['FATNOISE']
@@ -522,7 +522,7 @@ def set_individual_iteration(Tirific_Template, i,fit_groups, directory,tirific_c
     Current_Template = copy.deepcopy(Tirific_Template)
     Current_Template['RESTARTID']= i
     Current_Template['TIRDEF'] = name_out
-    nur = int(Current_Template['RESTARTID'])
+    nur = int(Current_Template['NUR'])
     # Provide some info where we are
     if verbose:
         log_statement += print_log(f'''
@@ -551,6 +551,7 @@ def set_individual_iteration(Tirific_Template, i,fit_groups, directory,tirific_c
                 current_list = [float(x) for x in Current_Template[para].split()]
                 while len(current_list) < nur:
                     current_list.append(current_list[-1])
+                
                 for l in range(fit_groups[group]['RINGS'][f'{disk}'][0],fit_groups[group]['RINGS'][f'{disk}'][1]+1):
                     if fit_groups[group]['VARIATION'][1] == 'a':
                         current_list[int(l-1)] += variations[int(l-fit_groups[group]['RINGS'][f'{disk}'][0])]
