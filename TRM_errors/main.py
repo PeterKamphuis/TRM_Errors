@@ -24,7 +24,8 @@ def warn_with_traceback(message, category, filename, lineno, file=None, line=Non
 
 
 
-def main(argv):
+def main():
+    argv = sys.argv[1:]
     if '-v' in argv or '--version' in argv:
         print(f"This is version {TRM_errors.__version__} of the program.")
         sys.exit()
