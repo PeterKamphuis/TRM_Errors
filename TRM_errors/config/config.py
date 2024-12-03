@@ -39,7 +39,7 @@ class General:
 class defaults:
     print_examples: bool = False
     configuration_file: Optional[str] = None
-    general: General = General()
-    tirshaker: Tirshaker=Tirshaker()
-    min_errors: Min_Errors = Min_Errors()
-    variations: Variations = Variations() 
+    general: General =  field(default_factory = General)
+    tirshaker: Tirshaker=  field(default_factory = Tirshaker)
+    min_errors: Min_Errors =  field(default_factory = Min_Errors)
+    variations: Variations =  field(default_factory = Variations) 
