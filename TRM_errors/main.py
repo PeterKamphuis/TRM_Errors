@@ -20,12 +20,12 @@ def warn_with_traceback(message, category, filename, lineno, file=None, line=Non
     traceback.print_stack(file=log)
     log.write(warnings.formatwarning(message, category, filename, lineno, line))
 
+def main_prog():
+    main(sys.argv[1:])
 
 
 
-
-def main():
-    argv = sys.argv[1:]
+def main(argv):
     if '-v' in argv or '--version' in argv:
         print(f"This is version {TRM_errors.__version__} of the program.")
         sys.exit()
