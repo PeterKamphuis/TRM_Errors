@@ -35,7 +35,7 @@ dependencies = [
 Homepage = "https://github.com/PeterKamphuis/TRM_errors"
 
 [project.scripts]
-create_TRM_errors = "TRM_errors.main:main"
+create_TRM_errors = "TRM_errors.main:main_prog"
 
 [tool.hatch.version]
 path = "version.py"
