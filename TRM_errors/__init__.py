@@ -36,7 +36,8 @@ def report_version():
         except subprocess.CalledProcessError:
             result = None
         if result != None and 'fatal' not in result:
-            return __version__+'-'+result
+            result = f'{__version__}-GitHub_Direct_Install'
+            return result
         else:
             # we are probably in an installed version
             return __version__
